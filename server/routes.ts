@@ -26,33 +26,140 @@ const upload = multer({
 function parseMarkdownToStructuredJson(markdown: string): any {
   const startTime = Date.now();
   
-  // Configure marked for consistent output
-  marked.setOptions({
-    gfm: true,
-    breaks: false,
-  });
-
-  // Custom renderer to create structured JSON
-  const renderer = new marked.Renderer();
   const elements: any[] = [];
   let elementCount = 0;
 
-  // Override renderer methods to capture structured data
-  const originalHeading = renderer.heading;
-  renderer.heading = function(text: string, level: number) {
-    elements.push({
-      type: "heading",
-      level: level,
-      content: text.replace(/<[^>]*>/g, ''), // Strip HTML tags
-    });
-    elementCount++;
-    return originalHeading.call(this, text, level);
-  };
+  // Parse using regex patterns for simplicity and reliability
+  const lines = markdown.split('\n');
+  let i = 0;
 
-  const originalParagraph = renderer.paragraph;
-  renderer.paragraph = function(text: string) {
-    // Parse inline elements
-    const children = parseInlineElements(text);
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    // Headers
+    const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headerMatch) {
+      elements.push({
+        type: "heading",
+        level: headerMatch[1].length,
+        content: headerMatch[2],
+      });
+      elementCount++;
+      i++;
+      continue;
+    }
+
+    // Code blocks
+    if (line.startsWith('```')) {
+      const langMatch = line.match(/^```(\w+)?/);
+      const language = langMatch?.[1] || 'text';
+      const codeLines: string[] = [];
+      i++;
+      
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      
+      elements.push({
+        type: "code_block",
+        language: language,
+        content: codeLines.join('\n'),
+      });
+      elementCount++;
+      i++; // Skip closing ```
+      continue;
+    }
+
+    // Blockquotes
+    if (line.startsWith('>')) {
+      const content = line.substring(1).trim();
+      elements.push({
+        type: "blockquote",
+        content: content,
+      });
+      elementCount++;
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.match(/^[-*_]{3,}$/)) {
+      elements.push({
+        type: "horizontal_rule",
+      });
+      elementCount++;
+      i++;
+      continue;
+    }
+
+    // Lists (unordered)
+    const unorderedListMatch = line.match(/^[\s]*[-*+]\s+(.+)$/);
+    if (unorderedListMatch) {
+      const items: any[] = [];
+      
+      while (i < lines.length) {
+        const currentLine = lines[i].trim();
+        const listMatch = currentLine.match(/^[\s]*[-*+]\s+(.+)$/);
+        if (listMatch) {
+          items.push({
+            type: "list_item",
+            content: listMatch[1],
+          });
+          i++;
+        } else if (currentLine === '') {
+          i++;
+        } else {
+          break;
+        }
+      }
+      
+      elements.push({
+        type: "list",
+        ordered: false,
+        items: items,
+      });
+      elementCount++;
+      continue;
+    }
+
+    // Lists (ordered)
+    const orderedListMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
+    if (orderedListMatch) {
+      const items: any[] = [];
+      
+      while (i < lines.length) {
+        const currentLine = lines[i].trim();
+        const listMatch = currentLine.match(/^[\s]*\d+\.\s+(.+)$/);
+        if (listMatch) {
+          items.push({
+            type: "list_item",
+            content: listMatch[1],
+          });
+          i++;
+        } else if (currentLine === '') {
+          i++;
+        } else {
+          break;
+        }
+      }
+      
+      elements.push({
+        type: "list",
+        ordered: true,
+        items: items,
+      });
+      elementCount++;
+      continue;
+    }
+
+    // Regular paragraphs
+    const children = parseInlineElements(line);
     if (children.length === 1 && children[0].type === 'text') {
       elements.push({
         type: "paragraph",
@@ -65,53 +172,8 @@ function parseMarkdownToStructuredJson(markdown: string): any {
       });
     }
     elementCount++;
-    return originalParagraph.call(this, text);
-  };
-
-  const originalList = renderer.list;
-  renderer.list = function(body: string, ordered: boolean) {
-    const items = parseListItems(body);
-    elements.push({
-      type: "list",
-      ordered: ordered,
-      items: items,
-    });
-    elementCount++;
-    return originalList.call(this, body, ordered);
-  };
-
-  const originalBlockquote = renderer.blockquote;
-  renderer.blockquote = function(quote: string) {
-    elements.push({
-      type: "blockquote",
-      content: quote.replace(/<[^>]*>/g, '').trim(),
-    });
-    elementCount++;
-    return originalBlockquote.call(this, quote);
-  };
-
-  const originalCode = renderer.code;
-  renderer.code = function(code: string, language?: string) {
-    elements.push({
-      type: "code_block",
-      language: language || "text",
-      content: code,
-    });
-    elementCount++;
-    return originalCode.call(this, code, language);
-  };
-
-  const originalHr = renderer.hr;
-  renderer.hr = function() {
-    elements.push({
-      type: "horizontal_rule",
-    });
-    elementCount++;
-    return originalHr.call(this);
-  };
-
-  // Process the markdown
-  marked(markdown, { renderer });
+    i++;
+  }
 
   const endTime = Date.now();
   const processTime = ((endTime - startTime) / 1000).toFixed(3) + 's';
@@ -147,19 +209,26 @@ function parseInlineElements(text: string): any[] {
   const matches: Array<{ type: string; content: string; url?: string; start: number; end: number }> = [];
 
   // Find all matches
-  let match;
+  let match: RegExpExecArray | null;
+  strongRegex.lastIndex = 0;
   while ((match = strongRegex.exec(text)) !== null) {
     matches.push({ type: 'strong', content: match[1], start: match.index, end: match.index + match[0].length });
   }
+  
+  emRegex.lastIndex = 0;
   while ((match = emRegex.exec(text)) !== null) {
     // Skip if this is part of a strong match
-    if (!matches.some(m => match.index >= m.start && match.index < m.end)) {
+    if (!matches.some(m => match!.index >= m.start && match!.index < m.end)) {
       matches.push({ type: 'emphasis', content: match[1], start: match.index, end: match.index + match[0].length });
     }
   }
+  
+  linkRegex.lastIndex = 0;
   while ((match = linkRegex.exec(text)) !== null) {
     matches.push({ type: 'link', content: match[1], url: match[2], start: match.index, end: match.index + match[0].length });
   }
+  
+  codeRegex.lastIndex = 0;
   while ((match = codeRegex.exec(text)) !== null) {
     matches.push({ type: 'code', content: match[1], start: match.index, end: match.index + match[0].length });
   }
@@ -205,7 +274,7 @@ function parseInlineElements(text: string): any[] {
 
 function parseListItems(body: string): any[] {
   const items: any[] = [];
-  const itemRegex = /<li>(.*?)<\/li>/gs;
+  const itemRegex = /<li>([\s\S]*?)<\/li>/g;
   let match;
 
   while ((match = itemRegex.exec(body)) !== null) {
