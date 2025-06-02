@@ -1,0 +1,288 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRightLeft, Download, Trash2, Clock, FileText, Code } from "lucide-react";
+import MarkdownInput from "@/components/markdown-input";
+import JsonOutput from "@/components/json-output";
+import FileUpload from "@/components/file-upload";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { ConvertMarkdownRequest, ConvertMarkdownResponse } from "@shared/schema";
+
+export default function ConverterPage() {
+  const [markdown, setMarkdown] = useState("");
+  const [jsonOutput, setJsonOutput] = useState<any>(null);
+  const [stats, setStats] = useState({
+    elements: 0,
+    jsonSize: "0 KB",
+    processTime: "0.00s",
+  });
+  const { toast } = useToast();
+
+  const convertMutation = useMutation({
+    mutationFn: async (data: ConvertMarkdownRequest) => {
+      const response = await apiRequest("POST", "/api/convert", data);
+      return response.json() as Promise<ConvertMarkdownResponse>;
+    },
+    onSuccess: (data) => {
+      setJsonOutput(data.json);
+      setStats(data.stats);
+      toast({
+        title: "Conversion successful!",
+        description: `Converted ${data.stats.elements} elements in ${data.stats.processTime}`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Conversion failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Upload failed");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setMarkdown(data.markdown);
+      setJsonOutput(data.json);
+      setStats(data.stats);
+      toast({
+        title: "File uploaded successfully!",
+        description: `Converted ${data.stats.elements} elements from your file`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleConvert = () => {
+    if (!markdown.trim()) {
+      toast({
+        title: "No content to convert",
+        description: "Please enter some markdown content first",
+        variant: "destructive",
+      });
+      return;
+    }
+    convertMutation.mutate({ markdown });
+  };
+
+  const handleFileUpload = (file: File) => {
+    uploadMutation.mutate(file);
+  };
+
+  const handleClear = () => {
+    setMarkdown("");
+    setJsonOutput(null);
+    setStats({
+      elements: 0,
+      jsonSize: "0 KB",
+      processTime: "0.00s",
+    });
+    toast({
+      title: "Content cleared",
+      description: "All content has been cleared",
+    });
+  };
+
+  const handleDownload = () => {
+    if (!jsonOutput) {
+      toast({
+        title: "No JSON to download",
+        description: "Please convert some markdown first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const jsonString = JSON.stringify(jsonOutput, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "converted-markdown.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Download started",
+      description: "Your JSON file is being downloaded",
+    });
+  };
+
+  const isLoading = convertMutation.isPending || uploadMutation.isPending;
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <ArrowRightLeft className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-slate-800">Markdown to JSON</h1>
+                <p className="text-xs text-slate-500">Convert markdown syntax to structured JSON</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleClear}
+                disabled={isLoading}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear All
+              </Button>
+              <Button 
+                onClick={handleDownload} 
+                disabled={!jsonOutput || isLoading}
+                size="sm"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download JSON
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Card className="shadow-sm">
+          <CardContent className="p-0">
+            <Tabs defaultValue="text" className="w-full">
+              {/* Input Section */}
+              <div className="border-b border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-slate-800">Input Markdown</CardTitle>
+                  <TabsList className="w-fit">
+                    <TabsTrigger value="text" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Text Input
+                    </TabsTrigger>
+                    <TabsTrigger value="file" className="flex items-center gap-2">
+                      <Download className="h-4 w-4" />
+                      File Upload
+                    </TabsTrigger>
+                  </TabsList>
+                </CardHeader>
+
+                <div className="px-6 pb-6">
+                  <TabsContent value="text">
+                    <MarkdownInput
+                      value={markdown}
+                      onChange={setMarkdown}
+                      onConvert={handleConvert}
+                      isLoading={isLoading}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="file">
+                    <FileUpload onFileUpload={handleFileUpload} isLoading={isLoading} />
+                  </TabsContent>
+                </div>
+              </div>
+
+              {/* Output Section */}
+              <div className="lg:grid lg:grid-cols-2 lg:divide-x lg:divide-slate-200">
+                <JsonOutput jsonData={jsonOutput} isLoading={isLoading} />
+                
+                {/* Preview Section */}
+                <div className="p-6 bg-slate-50">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Preview</h3>
+                  <div className="bg-white rounded-lg p-4 h-96 overflow-auto prose prose-sm max-w-none">
+                    {markdown ? (
+                      <div dangerouslySetInnerHTML={{ __html: markdown }} />
+                    ) : (
+                      <div className="text-slate-500 text-center mt-20">
+                        Enter markdown content to see preview
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Stats Cards */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <FileText className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    {stats.elements} Elements
+                  </p>
+                  <p className="text-xs text-slate-500">Parsed from markdown</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                  <Code className="h-4 w-4 text-secondary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{stats.jsonSize}</p>
+                  <p className="text-xs text-slate-500">JSON output size</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center mr-3">
+                  <Clock className="h-4 w-4 text-warning" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{stats.processTime}</p>
+                  <p className="text-xs text-slate-500">Processing time</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}

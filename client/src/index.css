@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 20 14.3% 4.1%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 25 5.3% 44.7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14.3% 4.1%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14.3% 4.1%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 207 90% 54%; /* #2563EB */
+  --primary-foreground: 211 100% 99%;
+  --secondary: 158 64% 52%; /* #10B981 */
+  --secondary-foreground: 24 9.8% 10%;
+  --accent: 60 4.8% 95.9%;
+  --accent-foreground: 24 9.8% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --warning: 48 96% 53%; /* #F59E0B */
+  --ring: 20 14.3% 4.1%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 158 64% 52%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --warning: 48 96% 53%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom styles for markdown display */
+  .prose {
+    @apply text-slate-700;
+  }
+
+  .prose h1 {
+    @apply text-2xl font-bold mb-4 text-slate-800;
+  }
+
+  .prose h2 {
+    @apply text-xl font-semibold mb-3 text-slate-800;
+  }
+
+  .prose h3 {
+    @apply text-lg font-medium mb-2 text-slate-800;
+  }
+
+  .prose p {
+    @apply mb-3 leading-relaxed;
+  }
+
+  .prose ul {
+    @apply list-disc list-inside mb-3 space-y-1;
+  }
+
+  .prose ol {
+    @apply list-decimal list-inside mb-3 space-y-1;
+  }
+
+  .prose li {
+    @apply leading-relaxed;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-slate-300 pl-4 italic text-slate-600 mb-3;
+  }
+
+  .prose code {
+    @apply bg-slate-100 px-1 py-0.5 rounded text-sm font-mono;
+  }
+
+  .prose pre {
+    @apply bg-slate-100 p-4 rounded-lg overflow-x-auto mb-3;
+  }
+
+  .prose pre code {
+    @apply bg-transparent p-0;
+  }
+
+  /* JSON syntax highlighting */
+  .json-tree .string {
+    @apply text-green-600;
+  }
+
+  .json-tree .number {
+    @apply text-blue-600;
+  }
+
+  .json-tree .boolean {
+    @apply text-purple-600;
+  }
+
+  .json-tree .null {
+    @apply text-red-600;
+  }
+
+  .json-tree .key {
+    @apply text-blue-800 font-medium;
+  }
+
+  /* Drag and drop styles */
+  .drag-active {
+    @apply border-primary bg-blue-50;
+  }
+
+  .drag-reject {
+    @apply border-red-300 bg-red-50;
+  }
+
+  /* Loading animations */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Custom scrollbar for code areas */
+  .overflow-auto::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .overflow-auto::-webkit-scrollbar-track {
+    @apply bg-slate-100 rounded;
+  }
+
+  .overflow-auto::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded;
+  }
+
+  .overflow-auto::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+}
