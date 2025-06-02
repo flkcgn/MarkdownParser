@@ -1,4 +1,6 @@
 import { conversions, type Conversion, type InsertConversion } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   createConversion(conversion: InsertConversion): Promise<Conversion>;
@@ -6,35 +8,27 @@ export interface IStorage {
   getRecentConversions(limit?: number): Promise<Conversion[]>;
 }
 
-export class MemStorage implements IStorage {
-  private conversions: Map<number, Conversion>;
-  private currentId: number;
-
-  constructor() {
-    this.conversions = new Map();
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async createConversion(insertConversion: InsertConversion): Promise<Conversion> {
-    const id = this.currentId++;
-    const conversion: Conversion = {
-      ...insertConversion,
-      id,
-      createdAt: new Date(),
-    };
-    this.conversions.set(id, conversion);
+    const [conversion] = await db
+      .insert(conversions)
+      .values(insertConversion)
+      .returning();
     return conversion;
   }
 
   async getConversion(id: number): Promise<Conversion | undefined> {
-    return this.conversions.get(id);
+    const [conversion] = await db.select().from(conversions).where(eq(conversions.id, id));
+    return conversion || undefined;
   }
 
   async getRecentConversions(limit: number = 10): Promise<Conversion[]> {
-    return Array.from(this.conversions.values())
-      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
-      .slice(0, limit);
+    return await db
+      .select()
+      .from(conversions)
+      .orderBy(desc(conversions.createdAt))
+      .limit(limit);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

@@ -3,14 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRightLeft, Download, Trash2, Clock, FileText, Code } from "lucide-react";
+import { ArrowRightLeft, Download, Trash2, Clock, FileText, Code, History } from "lucide-react";
 import MarkdownInput from "@/components/markdown-input";
 import JsonOutput from "@/components/json-output";
 import FileUpload from "@/components/file-upload";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { ConvertMarkdownRequest, ConvertMarkdownResponse } from "@shared/schema";
+import type { ConvertMarkdownRequest, ConvertMarkdownResponse, Conversion } from "@shared/schema";
 
 export default function ConverterPage() {
   const [markdown, setMarkdown] = useState("");
@@ -22,6 +22,15 @@ export default function ConverterPage() {
   });
   const { toast } = useToast();
 
+  // Fetch recent conversions from database
+  const { data: recentConversions, refetch: refetchConversions } = useQuery({
+    queryKey: ['/api/conversions'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/conversions");
+      return response.json() as Promise<Conversion[]>;
+    },
+  });
+
   const convertMutation = useMutation({
     mutationFn: async (data: ConvertMarkdownRequest) => {
       const response = await apiRequest("POST", "/api/convert", data);
@@ -30,6 +39,7 @@ export default function ConverterPage() {
     onSuccess: (data) => {
       setJsonOutput(data.json);
       setStats(data.stats);
+      refetchConversions(); // Refresh the conversion history
       toast({
         title: "Conversion successful!",
         description: `Converted ${data.stats.elements} elements in ${data.stats.processTime}`,
@@ -66,6 +76,7 @@ export default function ConverterPage() {
       setMarkdown(data.markdown);
       setJsonOutput(data.json);
       setStats(data.stats);
+      refetchConversions(); // Refresh the conversion history
       toast({
         title: "File uploaded successfully!",
         description: `Converted ${data.stats.elements} elements from your file`,
@@ -282,6 +293,49 @@ export default function ConverterPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Conversions History */}
+        {recentConversions && recentConversions.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Recent Conversions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentConversions.slice(0, 5).map((conversion, index) => (
+                  <div 
+                    key={conversion.id} 
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer"
+                    onClick={() => {
+                      setMarkdown(conversion.markdownContent);
+                      setJsonOutput(JSON.parse(conversion.jsonOutput));
+                      toast({
+                        title: "Conversion loaded",
+                        description: "Previous conversion has been loaded",
+                      });
+                    }}
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {conversion.markdownContent.substring(0, 60)}
+                        {conversion.markdownContent.length > 60 ? '...' : ''}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {conversion.createdAt ? new Date(conversion.createdAt).toLocaleDateString() : 'Unknown date'}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="ml-2">
+                      #{conversion.id}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
