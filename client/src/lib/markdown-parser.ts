@@ -13,28 +13,71 @@ export interface MarkdownElement {
 }
 
 export function parseMarkdownPreview(markdown: string): string {
-  // Simple client-side markdown to HTML conversion for preview
+  // Enhanced client-side markdown to HTML conversion for preview
   let html = markdown;
 
-  // Headers
-  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  // Escape HTML entities first
+  html = html.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
 
-  // Bold
-  html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+  // Code blocks (must be processed before inline code)
+  html = html.replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, code) => {
+    return `<pre class="bg-slate-100 p-3 rounded"><code class="text-sm">${code.trim()}</code></pre>`;
+  });
 
-  // Italic
-  html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+  // Blockquotes
+  html = html.replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-slate-300 pl-4 italic text-slate-600 my-2">$1</blockquote>');
 
-  // Code
-  html = html.replace(/`(.*?)`/gim, '<code>$1</code>');
+  // Horizontal rules
+  html = html.replace(/^[-*_]{3,}$/gm, '<hr class="border-slate-300 my-4">');
+
+  // Headers (process from h6 to h1 to avoid conflicts)
+  html = html.replace(/^###### (.*$)/gim, '<h6 class="text-sm font-medium text-slate-800 mt-4 mb-2">$1</h6>');
+  html = html.replace(/^##### (.*$)/gim, '<h5 class="text-base font-medium text-slate-800 mt-4 mb-2">$1</h5>');
+  html = html.replace(/^#### (.*$)/gim, '<h4 class="text-lg font-medium text-slate-800 mt-4 mb-2">$1</h4>');
+  html = html.replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold text-slate-800 mt-4 mb-3">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-slate-800 mt-6 mb-4">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-slate-800 mt-6 mb-4">$1</h1>');
+
+  // Lists (ordered)
+  html = html.replace(/^\d+\. (.+)$/gm, '<li class="ml-4">$1</li>');
+  html = html.replace(/(<li class="ml-4">.*<\/li>)/gs, '<ol class="list-decimal list-inside space-y-1 my-3">$1</ol>');
+
+  // Lists (unordered)
+  html = html.replace(/^[-*+] (.+)$/gm, '<li class="ml-4">$1</li>');
+  html = html.replace(/(<li class="ml-4">.*<\/li>)/gs, '<ul class="list-disc list-inside space-y-1 my-3">$1</ul>');
+
+  // Images
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto rounded">');
 
   // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" class="text-primary hover:underline">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 underline">$1</a>');
 
-  // Line breaks
-  html = html.replace(/\n/gim, '<br>');
+  // Bold (process before italic to avoid conflicts)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>');
+
+  // Italic
+  html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>');
+
+  // Line breaks and paragraphs
+  html = html.replace(/\n\n/g, '</p><p class="mb-3">');
+  html = html.replace(/\n/g, '<br>');
+  
+  // Wrap in paragraph if not already wrapped
+  if (!html.startsWith('<') && html.trim()) {
+    html = `<p class="mb-3">${html}</p>`;
+  }
+
+  // Clean up empty paragraphs and fix paragraph structure
+  html = html.replace(/<p class="mb-3"><\/p>/g, '');
+  html = html.replace(/<p class="mb-3">(<h[1-6])/g, '$1');
+  html = html.replace(/(<\/h[1-6]>)<\/p>/g, '$1');
+  html = html.replace(/<p class="mb-3">(<blockquote|<hr|<pre|<ul|<ol)/g, '$1');
+  html = html.replace(/(<\/blockquote>|<\/hr>|<\/pre>|<\/ul>|<\/ol>)<\/p>/g, '$1');
 
   return html;
 }

@@ -10,7 +10,7 @@ import FileUpload from "@/components/file-upload";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { validateMarkdown } from "@/lib/markdown-parser";
+import { validateMarkdown, parseMarkdownPreview } from "@/lib/markdown-parser";
 import type { ConvertMarkdownRequest, ConvertMarkdownResponse, Conversion } from "@shared/schema";
 
 export default function ConverterPage() {
@@ -235,7 +235,7 @@ export default function ConverterPage() {
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">Preview</h3>
                   <div className="bg-white rounded-lg p-4 h-96 overflow-auto prose prose-sm max-w-none">
                     {markdown ? (
-                      <div dangerouslySetInnerHTML={{ __html: markdown }} />
+                      <div dangerouslySetInnerHTML={{ __html: parseMarkdownPreview(markdown) }} />
                     ) : (
                       <div className="text-slate-500 text-center mt-20">
                         Enter markdown content to see preview
