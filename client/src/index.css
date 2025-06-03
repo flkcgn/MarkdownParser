@@ -275,12 +275,37 @@
   }
 
   /* Enhanced focus styles for textarea when jumping to lines */
+  @keyframes highlightPulse {
+    0% {
+      box-shadow: 0 0 0 0px rgba(59, 130, 246, 0.7), 0 0 0px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.9), 0 0 25px rgba(59, 130, 246, 0.5);
+    }
+    100% {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.7), 0 0 20px rgba(59, 130, 246, 0.3);
+    }
+  }
+
+  @keyframes highlightPulseDark {
+    0% {
+      box-shadow: 0 0 0 0px rgba(96, 165, 250, 0.8), 0 0 0px rgba(96, 165, 250, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgba(96, 165, 250, 1), 0 0 25px rgba(96, 165, 250, 0.6);
+    }
+    100% {
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.8), 0 0 20px rgba(96, 165, 250, 0.4);
+    }
+  }
+
   .textarea-highlight {
+    animation: highlightPulse 0.6s ease-in-out;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.7), 0 0 20px rgba(59, 130, 246, 0.3);
-    transition: box-shadow 0.3s ease-in-out;
   }
 
   .dark .textarea-highlight {
+    animation: highlightPulseDark 0.6s ease-in-out;
     box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.8), 0 0 20px rgba(96, 165, 250, 0.4);
   }
 

@@ -20,6 +20,7 @@ export default function MarkdownInput({ value, onChange, onConvert, isLoading }:
     warnings: ValidationError[];
   }>({ isValid: true, errors: [], warnings: [] });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const characters = value.length;
@@ -48,20 +49,42 @@ export default function MarkdownInput({ value, onChange, onConvert, isLoading }:
       position += lines[i].length + 1; // +1 for the newline character
     }
     
-    // Focus the textarea and set cursor position
-    textarea.focus();
-    textarea.setSelectionRange(position, position + (lines[lineNumber - 1]?.length || 0));
+    // Clear any existing timeout
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
     
-    // Add highlight effect
-    textarea.classList.add('textarea-highlight');
+    // Reset animation by removing and re-adding the class
+    textarea.classList.remove('textarea-highlight');
+    
+    // Use a small delay to ensure the class is fully removed
     setTimeout(() => {
-      textarea.classList.remove('textarea-highlight');
-    }, 2000);
+      // Focus the textarea and set cursor position
+      textarea.focus();
+      textarea.setSelectionRange(position, position + (lines[lineNumber - 1]?.length || 0));
+      
+      // Add highlight effect
+      textarea.classList.add('textarea-highlight');
+      
+      // Remove highlight after animation
+      highlightTimeoutRef.current = setTimeout(() => {
+        textarea.classList.remove('textarea-highlight');
+      }, 2500);
+    }, 50);
     
-    // Scroll to the line
-    const lineHeight = 20; // Approximate line height in pixels
-    const scrollTop = Math.max(0, (lineNumber - 5) * lineHeight); // Show some context above
-    textarea.scrollTop = scrollTop;
+    // Scroll to the line with better positioning
+    const computedStyle = window.getComputedStyle(textarea);
+    const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
+    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+    
+    // Calculate scroll position to center the target line
+    const targetScrollTop = Math.max(0, (lineNumber - 3) * lineHeight - paddingTop);
+    
+    // Smooth scroll to the target position
+    textarea.scrollTo({
+      top: targetScrollTop,
+      behavior: 'smooth'
+    });
   };
 
   const placeholder = `# Welcome to Markdown to JSON Converter
