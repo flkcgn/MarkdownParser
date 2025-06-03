@@ -20,6 +20,7 @@ export default function ConverterPage() {
     elements: 0,
     jsonSize: "0 KB",
     processTime: "0.00s",
+    wordCount: 0,
   });
   const { toast } = useToast();
 
@@ -39,7 +40,7 @@ export default function ConverterPage() {
     },
     onSuccess: (data) => {
       setJsonOutput(data.json);
-      setStats(data.stats);
+      setStats({ ...data.stats, wordCount: data.metadata.word_count });
       refetchConversions(); // Refresh the conversion history
       toast({
         title: "Conversion successful!",
@@ -76,7 +77,7 @@ export default function ConverterPage() {
     onSuccess: (data) => {
       setMarkdown(data.markdown);
       setJsonOutput(data.json);
-      setStats(data.stats);
+      setStats({ ...data.stats, wordCount: data.metadata.word_count });
       refetchConversions(); // Refresh the conversion history
       toast({
         title: "File uploaded successfully!",
@@ -115,6 +116,7 @@ export default function ConverterPage() {
       elements: 0,
       jsonSize: "0 KB",
       processTime: "0.00s",
+      wordCount: 0,
     });
     toast({
       title: "Content cleared",
@@ -249,7 +251,7 @@ export default function ConverterPage() {
         </Card>
 
         {/* Stats Cards */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -275,6 +277,20 @@ export default function ConverterPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-800">{stats.jsonSize}</p>
                   <p className="text-xs text-slate-500">JSON output size</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                  <FileText className="h-4 w-4 text-indigo-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{stats.wordCount}</p>
+                  <p className="text-xs text-slate-500">Total words</p>
                 </div>
               </div>
             </CardContent>
