@@ -3,7 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRightLeft, Download, Trash2, Clock, FileText, Code, History, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Download,
+  Trash2,
+  Clock,
+  FileText,
+  Code,
+  History,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+} from "lucide-react";
 import MarkdownInput from "@/components/markdown-input";
 import JsonOutput from "@/components/json-output";
 import FileUpload from "@/components/file-upload";
@@ -11,7 +22,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { validateMarkdown, parseMarkdownPreview } from "@/lib/markdown-parser";
-import type { ConvertMarkdownRequest, ConvertMarkdownResponse, Conversion } from "@shared/schema";
+import type {
+  ConvertMarkdownRequest,
+  ConvertMarkdownResponse,
+  Conversion,
+} from "@shared/schema";
 
 export default function ConverterPage() {
   const [markdown, setMarkdown] = useState("");
@@ -20,12 +35,13 @@ export default function ConverterPage() {
     elements: 0,
     jsonSize: "0 KB",
     processTime: "0.00s",
+    wordCount: 0,
   });
   const { toast } = useToast();
 
   // Fetch recent conversions from database
   const { data: recentConversions, refetch: refetchConversions } = useQuery({
-    queryKey: ['/api/conversions'],
+    queryKey: ["/api/conversions"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/conversions");
       return response.json() as Promise<Conversion[]>;
@@ -39,7 +55,7 @@ export default function ConverterPage() {
     },
     onSuccess: (data) => {
       setJsonOutput(data.json);
-      setStats(data.stats);
+      setStats({ ...data.stats, wordCount: data.metadata.word_count });
       refetchConversions(); // Refresh the conversion history
       toast({
         title: "Conversion successful!",
@@ -59,24 +75,24 @@ export default function ConverterPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      
+
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
         credentials: "include",
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Upload failed");
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
       setMarkdown(data.markdown);
       setJsonOutput(data.json);
-      setStats(data.stats);
+      setStats({ ...data.stats, wordCount: data.metadata.word_count });
       refetchConversions(); // Refresh the conversion history
       toast({
         title: "File uploaded successfully!",
@@ -115,6 +131,7 @@ export default function ConverterPage() {
       elements: 0,
       jsonSize: "0 KB",
       processTime: "0.00s",
+      wordCount: 0,
     });
     toast({
       title: "Content cleared",
@@ -162,14 +179,18 @@ export default function ConverterPage() {
                 <ArrowRightLeft className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-slate-800">Markdown to JSON</h1>
-                <p className="text-xs text-slate-500">Convert markdown syntax to structured JSON</p>
+                <h1 className="text-xl font-semibold text-slate-800">
+                  Markdown to JSON
+                </h1>
+                <p className="text-xs text-slate-500">
+                  Convert markdown syntax to structured JSON
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleClear}
                 disabled={isLoading}
                 className="transition-all hover-lift"
@@ -177,8 +198,8 @@ export default function ConverterPage() {
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All
               </Button>
-              <Button 
-                onClick={handleDownload} 
+              <Button
+                onClick={handleDownload}
                 disabled={!jsonOutput || isLoading}
                 size="sm"
                 className="transition-all hover-lift"
@@ -199,13 +220,21 @@ export default function ConverterPage() {
               {/* Input Section */}
               <div className="border-b border-slate-200">
                 <CardHeader className="animate-slide-in-left animate-delay-200">
-                  <CardTitle className="text-lg font-semibold text-slate-800">Input Markdown</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-slate-800">
+                    Input Markdown
+                  </CardTitle>
                   <TabsList className="w-fit">
-                    <TabsTrigger value="text" className="flex items-center gap-2 transition-all">
+                    <TabsTrigger
+                      value="text"
+                      className="flex items-center gap-2 transition-all"
+                    >
                       <FileText className="h-4 w-4" />
                       Text Input
                     </TabsTrigger>
-                    <TabsTrigger value="file" className="flex items-center gap-2 transition-all">
+                    <TabsTrigger
+                      value="file"
+                      className="flex items-center gap-2 transition-all"
+                    >
                       <Download className="h-4 w-4" />
                       File Upload
                     </TabsTrigger>
@@ -223,7 +252,10 @@ export default function ConverterPage() {
                   </TabsContent>
 
                   <TabsContent value="file">
-                    <FileUpload onFileUpload={handleFileUpload} isLoading={isLoading} />
+                    <FileUpload
+                      onFileUpload={handleFileUpload}
+                      isLoading={isLoading}
+                    />
                   </TabsContent>
                 </div>
               </div>
@@ -233,13 +265,19 @@ export default function ConverterPage() {
                 <div className="animate-slide-in-left animate-delay-300">
                   <JsonOutput jsonData={jsonOutput} isLoading={isLoading} />
                 </div>
-                
+
                 {/* Preview Section */}
                 <div className="p-6 bg-slate-50 animate-slide-in-right animate-delay-300">
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Preview</h3>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                    Preview
+                  </h3>
                   <div className="bg-white rounded-lg p-4 h-96 overflow-auto prose prose-sm max-w-none transition-all hover-scale">
                     {markdown ? (
-                      <div dangerouslySetInnerHTML={{ __html: parseMarkdownPreview(markdown) }} />
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: parseMarkdownPreview(markdown),
+                        }}
+                      />
                     ) : (
                       <div className="text-slate-500 text-center mt-20">
                         Enter markdown content to see preview
@@ -253,8 +291,9 @@ export default function ConverterPage() {
         </Card>
 
         {/* Stats Cards */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="animate-slide-up animate-delay-100 transition-all hover-lift">
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+          <Card>
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
@@ -269,7 +308,7 @@ export default function ConverterPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="animate-slide-up animate-delay-200 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -277,13 +316,31 @@ export default function ConverterPage() {
                   <Code className="h-4 w-4 text-secondary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{stats.jsonSize}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {stats.jsonSize}
+                  </p>
                   <p className="text-xs text-slate-500">JSON output size</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                  <FileText className="h-4 w-4 text-indigo-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    {stats.wordCount}
+                  </p>
+                  <p className="text-xs text-slate-500">Total words</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="animate-slide-up animate-delay-300 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -291,13 +348,15 @@ export default function ConverterPage() {
                   <Clock className="h-4 w-4 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{stats.processTime}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {stats.processTime}
+                  </p>
                   <p className="text-xs text-slate-500">Processing time</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="animate-slide-up animate-delay-400 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -309,13 +368,17 @@ export default function ConverterPage() {
                           <FileText className="h-4 w-4 text-slate-400" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">No Content</p>
-                          <p className="text-xs text-slate-500">Enter markdown to validate</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            No Content
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Enter markdown to validate
+                          </p>
                         </div>
                       </>
                     );
                   }
-                  
+
                   const validation = validateMarkdown(markdown);
                   if (validation.errors.length > 0) {
                     return (
@@ -324,8 +387,13 @@ export default function ConverterPage() {
                           <XCircle className="h-4 w-4 text-red-500" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">{validation.errors.length} Error{validation.errors.length !== 1 ? 's' : ''}</p>
-                          <p className="text-xs text-slate-500">Fix errors to convert</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {validation.errors.length} Error
+                            {validation.errors.length !== 1 ? "s" : ""}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Fix errors to convert
+                          </p>
                         </div>
                       </>
                     );
@@ -336,8 +404,13 @@ export default function ConverterPage() {
                           <AlertTriangle className="h-4 w-4 text-yellow-500" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">{validation.warnings.length} Warning{validation.warnings.length !== 1 ? 's' : ''}</p>
-                          <p className="text-xs text-slate-500">Style suggestions</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {validation.warnings.length} Warning
+                            {validation.warnings.length !== 1 ? "s" : ""}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Style suggestions
+                          </p>
                         </div>
                       </>
                     );
@@ -348,8 +421,12 @@ export default function ConverterPage() {
                           <CheckCircle className="h-4 w-4 text-green-500" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">Valid Syntax</p>
-                          <p className="text-xs text-slate-500">Ready to convert</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            Valid Syntax
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Ready to convert
+                          </p>
                         </div>
                       </>
                     );
@@ -372,8 +449,8 @@ export default function ConverterPage() {
             <CardContent>
               <div className="space-y-3">
                 {recentConversions.slice(0, 5).map((conversion, index) => (
-                  <div 
-                    key={conversion.id} 
+                  <div
+                    key={conversion.id}
                     className={`flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer transition-all hover-lift animate-slide-up animate-delay-${(index + 1) * 100}`}
                     onClick={() => {
                       setMarkdown(conversion.markdownContent);
@@ -387,13 +464,18 @@ export default function ConverterPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-800 truncate">
                         {conversion.markdownContent.substring(0, 60)}
-                        {conversion.markdownContent.length > 60 ? '...' : ''}
+                        {conversion.markdownContent.length > 60 ? "..." : ""}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {conversion.createdAt ? new Date(conversion.createdAt).toLocaleDateString() : 'Unknown date'}
+                        {conversion.createdAt
+                          ? new Date(conversion.createdAt).toLocaleDateString()
+                          : "Unknown date"}
                       </p>
                     </div>
-                    <Badge variant="secondary" className="ml-2 transition-all hover-scale">
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 transition-all hover-scale"
+                    >
                       #{conversion.id}
                     </Badge>
                   </div>

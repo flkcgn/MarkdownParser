@@ -29,6 +29,9 @@ export const convertMarkdownResponseSchema = z.object({
     jsonSize: z.string(),
     processTime: z.string(),
   }),
+  metadata: z.object({
+    word_count: z.number(),
+  }),
 });
 
 export type ConvertMarkdownRequest = z.infer<typeof convertMarkdownSchema>;
