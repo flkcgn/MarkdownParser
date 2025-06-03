@@ -11,5 +11,7 @@ Ein einfacher Markdown-Parser, der Markdown-Dokumente in strukturierte JSON-Date
 ## 📦 Installation
 
 ```bash
-git clone https://github.com/dein-nutzername/markdown-to-json.git
-cd markdown-to-json
+git clone https://github.com/flkcgn/MarkdownParser.git
+cd MarkdownParser
+npm install
+npm run dev
