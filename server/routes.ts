@@ -2,7 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { convertMarkdownSchema, convertMarkdownResponseSchema } from "@shared/schema";
-import { marked } from "marked";
+// marked is installed only for the client, avoid using it here to keep the
+// server lightweight. We'll implement our own simple word counter instead of
+// relying on marked for stripping markdown.
 import multer from "multer";
 
 // Configure multer for file uploads
@@ -22,6 +24,32 @@ const upload = multer({
     }
   },
 });
+
+function countWords(markdown: string): number {
+  // Remove fenced code blocks
+  let text = markdown.replace(/```[\s\S]*?```/g, " ");
+  // Remove inline code
+  text = text.replace(/`[^`]*`/g, " ");
+  // Remove images entirely
+  text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, " ");
+  // Replace links with just their text
+  text = text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  // Strip blockquote markers
+  text = text.replace(/^\s*>\s?/gm, "");
+  // Strip heading markers
+  text = text.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+  // Strip list markers
+  text = text.replace(/^\s*[-*+]\s+/gm, "");
+  text = text.replace(/^\s*\d+\.\s+/gm, "");
+  // Remove emphasis markers
+  text = text.replace(/[*_~]/g, "");
+  // Remove HTML tags
+  text = text.replace(/<[^>]+>/g, " ");
+  // Normalize whitespace
+  text = text.replace(/[\n\r\t]+/g, " ");
+  text = text.replace(/\s+/g, " ").trim();
+  return text ? text.split(/\s+/).length : 0;
+}
 
 function parseMarkdownToStructuredJson(markdown: string): any {
   const startTime = Date.now();
@@ -185,6 +213,7 @@ function parseMarkdownToStructuredJson(markdown: string): any {
 
   const jsonString = JSON.stringify(result, null, 2);
   const jsonSize = (jsonString.length / 1024).toFixed(1) + ' KB';
+  const wordCount = countWords(markdown);
 
   return {
     json: result,
@@ -192,6 +221,9 @@ function parseMarkdownToStructuredJson(markdown: string): any {
       elements: elementCount,
       jsonSize,
       processTime,
+    },
+    metadata: {
+      word_count: wordCount,
     },
   };
 }
