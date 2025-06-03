@@ -85,8 +85,8 @@ export function validateMarkdown(markdown: string): {
   const lines = markdown.split('\n');
 
   // Check for unclosed code blocks
-  const codeBlocks = markdown.match(/```/g);
-  if (codeBlocks && codeBlocks.length % 2 !== 0) {
+  const fenceLines = lines.filter((line) => line.trim().startsWith('```'));
+  if (fenceLines.length % 2 !== 0) {
     errors.push({
       type: 'error',
       message: 'Unclosed code block detected',
