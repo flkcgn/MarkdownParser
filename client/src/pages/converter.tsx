@@ -154,7 +154,7 @@ export default function ConverterPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 shadow-sm">
+      <header className="bg-white border-b border-slate-200 shadow-sm animate-slide-in-left">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
@@ -172,6 +172,7 @@ export default function ConverterPage() {
                 size="sm" 
                 onClick={handleClear}
                 disabled={isLoading}
+                className="transition-all hover-lift"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All
@@ -180,6 +181,7 @@ export default function ConverterPage() {
                 onClick={handleDownload} 
                 disabled={!jsonOutput || isLoading}
                 size="sm"
+                className="transition-all hover-lift"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download JSON
@@ -191,19 +193,19 @@ export default function ConverterPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Card className="shadow-sm">
+        <Card className="shadow-sm animate-fade-in animate-delay-100 transition-all hover-lift">
           <CardContent className="p-0">
             <Tabs defaultValue="text" className="w-full">
               {/* Input Section */}
               <div className="border-b border-slate-200">
-                <CardHeader>
+                <CardHeader className="animate-slide-in-left animate-delay-200">
                   <CardTitle className="text-lg font-semibold text-slate-800">Input Markdown</CardTitle>
                   <TabsList className="w-fit">
-                    <TabsTrigger value="text" className="flex items-center gap-2">
+                    <TabsTrigger value="text" className="flex items-center gap-2 transition-all">
                       <FileText className="h-4 w-4" />
                       Text Input
                     </TabsTrigger>
-                    <TabsTrigger value="file" className="flex items-center gap-2">
+                    <TabsTrigger value="file" className="flex items-center gap-2 transition-all">
                       <Download className="h-4 w-4" />
                       File Upload
                     </TabsTrigger>
@@ -228,12 +230,14 @@ export default function ConverterPage() {
 
               {/* Output Section */}
               <div className="lg:grid lg:grid-cols-2 lg:divide-x lg:divide-slate-200">
-                <JsonOutput jsonData={jsonOutput} isLoading={isLoading} />
+                <div className="animate-slide-in-left animate-delay-300">
+                  <JsonOutput jsonData={jsonOutput} isLoading={isLoading} />
+                </div>
                 
                 {/* Preview Section */}
-                <div className="p-6 bg-slate-50">
+                <div className="p-6 bg-slate-50 animate-slide-in-right animate-delay-300">
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">Preview</h3>
-                  <div className="bg-white rounded-lg p-4 h-96 overflow-auto prose prose-sm max-w-none">
+                  <div className="bg-white rounded-lg p-4 h-96 overflow-auto prose prose-sm max-w-none transition-all hover-scale">
                     {markdown ? (
                       <div dangerouslySetInnerHTML={{ __html: parseMarkdownPreview(markdown) }} />
                     ) : (
@@ -250,7 +254,7 @@ export default function ConverterPage() {
 
         {/* Stats Cards */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="animate-slide-up animate-delay-100 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
@@ -266,7 +270,7 @@ export default function ConverterPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="animate-slide-up animate-delay-200 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
@@ -280,7 +284,7 @@ export default function ConverterPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="animate-slide-up animate-delay-300 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center mr-3">
@@ -294,7 +298,7 @@ export default function ConverterPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="animate-slide-up animate-delay-400 transition-all hover-lift">
             <CardContent className="p-4">
               <div className="flex items-center">
                 {(() => {

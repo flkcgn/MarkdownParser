@@ -42,11 +42,9 @@ export function parseMarkdownPreview(markdown: string): string {
 
   // Lists (ordered)
   html = html.replace(/^\d+\. (.+)$/gm, '<li class="ml-4">$1</li>');
-  html = html.replace(/(<li class="ml-4">.*<\/li>)/gs, '<ol class="list-decimal list-inside space-y-1 my-3">$1</ol>');
-
+  
   // Lists (unordered)
   html = html.replace(/^[-*+] (.+)$/gm, '<li class="ml-4">$1</li>');
-  html = html.replace(/(<li class="ml-4">.*<\/li>)/gs, '<ul class="list-disc list-inside space-y-1 my-3">$1</ul>');
 
   // Images
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto rounded">');
