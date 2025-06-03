@@ -77,9 +77,9 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
         </div>
       </div>
       
-      <div className="bg-slate-50 rounded-lg p-4 h-96 overflow-auto relative group">
+      <div className="bg-slate-50 rounded-lg p-4 h-96 overflow-auto relative group transition-all hover-scale">
         {isLoading ? (
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-lg flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-lg flex items-center justify-center animate-fade-in">
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               <span className="text-sm text-slate-500">Converting...</span>
@@ -87,13 +87,13 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
           </div>
         ) : jsonData ? (
           <>
-            <pre className="font-mono text-sm text-slate-700">
+            <pre className="font-mono text-sm text-slate-700 animate-fade-in">
               <code>{JSON.stringify(jsonData, null, 2)}</code>
             </pre>
             {/* Floating copy button */}
             <Button
               onClick={handleCopy}
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 hover:bg-white border border-slate-200 text-slate-700 hover:text-slate-900 shadow-sm"
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 hover:bg-white border border-slate-200 text-slate-700 hover:text-slate-900 shadow-sm hover-lift"
               size="sm"
             >
               {copied ? (
@@ -110,7 +110,7 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
             </Button>
           </>
         ) : (
-          <div className="text-slate-500 text-center mt-20">
+          <div className="text-slate-500 text-center mt-20 animate-fade-in">
             Enter markdown content and click convert to see JSON output
           </div>
         )}
