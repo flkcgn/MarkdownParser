@@ -7,9 +7,10 @@ interface MarkdownValidationProps {
   errors: ValidationError[];
   warnings: ValidationError[];
   isValid: boolean;
+  onJumpToLine?: (line: number) => void;
 }
 
-export default function MarkdownValidation({ errors, warnings, isValid }: MarkdownValidationProps) {
+export default function MarkdownValidation({ errors, warnings, isValid, onJumpToLine }: MarkdownValidationProps) {
   if (isValid && warnings.length === 0) {
     return (
       <Card className="border-green-200 bg-green-50 animate-fade-in transition-all hover-lift">
@@ -46,13 +47,24 @@ export default function MarkdownValidation({ errors, warnings, isValid }: Markdo
       <CardContent className="pt-0">
         <div className="space-y-3 max-h-48 overflow-y-auto">
           {errors.map((error, index) => (
-            <div key={`error-${index}`} className={`flex items-start gap-3 p-3 bg-white rounded-lg border border-red-200 transition-all hover-lift animate-slide-up animate-delay-${(index + 1) * 100}`}>
+            <div 
+              key={`error-${index}`} 
+              className={`flex items-start gap-3 p-3 bg-white rounded-lg border border-red-200 transition-all hover-lift animate-slide-up animate-delay-${(index + 1) * 100} ${error.line && onJumpToLine ? 'cursor-pointer hover:bg-red-25' : ''}`}
+              onClick={() => error.line && onJumpToLine && onJumpToLine(error.line)}
+            >
               <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-red-800">{error.message}</span>
                   {error.line && (
-                    <Badge variant="outline" className="text-xs border-red-300 text-red-700 transition-all hover-scale">
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs border-red-300 text-red-700 transition-all hover-scale ${onJumpToLine ? 'cursor-pointer hover:bg-red-100' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onJumpToLine && onJumpToLine(error.line!);
+                      }}
+                    >
                       Line {error.line}
                     </Badge>
                   )}
@@ -68,13 +80,24 @@ export default function MarkdownValidation({ errors, warnings, isValid }: Markdo
           ))}
           
           {warnings.map((warning, index) => (
-            <div key={`warning-${index}`} className={`flex items-start gap-3 p-3 bg-white rounded-lg border border-yellow-200 transition-all hover-lift animate-slide-up animate-delay-${(index + errors.length + 1) * 100}`}>
+            <div 
+              key={`warning-${index}`} 
+              className={`flex items-start gap-3 p-3 bg-white rounded-lg border border-yellow-200 transition-all hover-lift animate-slide-up animate-delay-${(index + errors.length + 1) * 100} ${warning.line && onJumpToLine ? 'cursor-pointer hover:bg-yellow-25' : ''}`}
+              onClick={() => warning.line && onJumpToLine && onJumpToLine(warning.line)}
+            >
               <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-yellow-800">{warning.message}</span>
                   {warning.line && (
-                    <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700 transition-all hover-scale">
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs border-yellow-300 text-yellow-700 transition-all hover-scale ${onJumpToLine ? 'cursor-pointer hover:bg-yellow-100' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onJumpToLine && onJumpToLine(warning.line!);
+                      }}
+                    >
                       Line {warning.line}
                     </Badge>
                   )}

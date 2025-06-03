@@ -265,6 +265,21 @@
     transform: scale(1.02);
   }
 
+  /* Light background colors for clickable validation items */
+  .hover\:bg-red-25:hover {
+    background-color: rgba(254, 242, 242, 0.5);
+  }
+
+  .hover\:bg-yellow-25:hover {
+    background-color: rgba(254, 252, 232, 0.5);
+  }
+
+  /* Enhanced focus styles for textarea when jumping to lines */
+  .textarea-highlight {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    transition: box-shadow 0.2s ease-in-out;
+  }
+
   /* Custom scrollbar for code areas */
   .overflow-auto::-webkit-scrollbar {
     width: 6px;

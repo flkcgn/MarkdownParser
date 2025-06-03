@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
@@ -19,6 +19,7 @@ export default function MarkdownInput({ value, onChange, onConvert, isLoading }:
     errors: ValidationError[];
     warnings: ValidationError[];
   }>({ isValid: true, errors: [], warnings: [] });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const characters = value.length;
@@ -34,6 +35,28 @@ export default function MarkdownInput({ value, onChange, onConvert, isLoading }:
       setValidation({ isValid: true, errors: [], warnings: [] });
     }
   }, [value]);
+
+  const handleJumpToLine = (lineNumber: number) => {
+    if (!textareaRef.current) return;
+    
+    const textarea = textareaRef.current;
+    const lines = value.split('\n');
+    let position = 0;
+    
+    // Calculate the character position of the target line
+    for (let i = 0; i < lineNumber - 1 && i < lines.length; i++) {
+      position += lines[i].length + 1; // +1 for the newline character
+    }
+    
+    // Focus the textarea and set cursor position
+    textarea.focus();
+    textarea.setSelectionRange(position, position + (lines[lineNumber - 1]?.length || 0));
+    
+    // Scroll to the line
+    const lineHeight = 20; // Approximate line height in pixels
+    const scrollTop = (lineNumber - 1) * lineHeight;
+    textarea.scrollTop = scrollTop;
+  };
 
   const placeholder = `# Welcome to Markdown to JSON Converter
 
@@ -62,6 +85,7 @@ function example() {
   return (
     <div className="space-y-4 animate-fade-in">
       <Textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -78,6 +102,7 @@ function example() {
           errors={validation.errors}
           warnings={validation.warnings}
           isValid={validation.isValid}
+          onJumpToLine={handleJumpToLine}
         />
       )}
       
