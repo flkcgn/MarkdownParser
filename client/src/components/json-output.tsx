@@ -42,14 +42,14 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-800">JSON Output</h3>
         <div className="flex items-center space-x-2">
           <Button
             onClick={handleCopy}
             disabled={!jsonData || isLoading}
-            className="bg-primary hover:bg-primary/90 text-white"
+            className="bg-primary hover:bg-primary/90 text-white transition-all hover-lift"
             size="sm"
           >
             {copied ? (
@@ -70,6 +70,7 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
             onClick={handleFormat}
             disabled={!jsonData || isLoading}
             title="Format JSON"
+            className="transition-all hover-lift"
           >
             <Code className="h-4 w-4" />
           </Button>

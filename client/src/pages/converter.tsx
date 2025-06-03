@@ -362,8 +362,8 @@ export default function ConverterPage() {
 
         {/* Recent Conversions History */}
         {recentConversions && recentConversions.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
+          <Card className="mt-6 animate-fade-in animate-delay-400 transition-all hover-lift">
+            <CardHeader className="animate-slide-in-left animate-delay-100">
               <CardTitle className="flex items-center gap-2">
                 <History className="h-5 w-5" />
                 Recent Conversions
@@ -374,7 +374,7 @@ export default function ConverterPage() {
                 {recentConversions.slice(0, 5).map((conversion, index) => (
                   <div 
                     key={conversion.id} 
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer"
+                    className={`flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer transition-all hover-lift animate-slide-up animate-delay-${(index + 1) * 100}`}
                     onClick={() => {
                       setMarkdown(conversion.markdownContent);
                       setJsonOutput(JSON.parse(conversion.jsonOutput));
@@ -393,7 +393,7 @@ export default function ConverterPage() {
                         {conversion.createdAt ? new Date(conversion.createdAt).toLocaleDateString() : 'Unknown date'}
                       </p>
                     </div>
-                    <Badge variant="secondary" className="ml-2">
+                    <Badge variant="secondary" className="ml-2 transition-all hover-scale">
                       #{conversion.id}
                     </Badge>
                   </div>

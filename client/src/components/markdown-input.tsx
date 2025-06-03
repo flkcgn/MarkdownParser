@@ -60,12 +60,12 @@ function example() {
 \`\`\``;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`min-h-96 font-mono text-sm resize-none ${
+        className={`min-h-96 font-mono text-sm resize-none transition-all focus:scale-[1.01] ${
           validation.errors.length > 0 ? 'border-red-300 focus:border-red-500' : 
           validation.warnings.length > 0 ? 'border-yellow-300 focus:border-yellow-500' : ''
         }`}
@@ -100,7 +100,7 @@ function example() {
         <Button 
           onClick={onConvert} 
           disabled={!value.trim() || isLoading || validation.errors.length > 0}
-          className={`${validation.errors.length > 0 ? 
+          className={`transition-all hover-lift ${validation.errors.length > 0 ? 
             'bg-gray-400 cursor-not-allowed' : 
             'bg-secondary hover:bg-emerald-600'}`}
         >
