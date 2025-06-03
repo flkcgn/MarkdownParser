@@ -68,32 +68,145 @@ export function getMarkdownStats(markdown: string): {
   };
 }
 
+export interface ValidationError {
+  type: 'error' | 'warning';
+  message: string;
+  line?: number;
+  suggestion?: string;
+}
+
 export function validateMarkdown(markdown: string): {
   isValid: boolean;
-  errors: string[];
+  errors: ValidationError[];
+  warnings: ValidationError[];
 } {
-  const errors: string[] = [];
+  const errors: ValidationError[] = [];
+  const warnings: ValidationError[] = [];
+  const lines = markdown.split('\n');
 
   // Check for unclosed code blocks
   const codeBlocks = markdown.match(/```/g);
   if (codeBlocks && codeBlocks.length % 2 !== 0) {
-    errors.push("Unclosed code block detected");
+    errors.push({
+      type: 'error',
+      message: 'Unclosed code block detected',
+      suggestion: 'Add closing ``` to complete the code block'
+    });
   }
 
   // Check for malformed links
-  const malformedLinks = markdown.match(/\[[^\]]*\]\([^)]*$/gm);
-  if (malformedLinks && malformedLinks.length > 0) {
-    errors.push("Malformed link detected");
+  lines.forEach((line, index) => {
+    const malformedLinks = line.match(/\[[^\]]*\]\([^)]*$/);
+    if (malformedLinks) {
+      errors.push({
+        type: 'error',
+        message: 'Malformed link detected',
+        line: index + 1,
+        suggestion: 'Ensure link syntax is [text](url) with closing parenthesis'
+      });
+    }
+
+    // Check for unbalanced brackets in links
+    const linkBrackets = line.match(/\[[^\]]*$/);
+    if (linkBrackets) {
+      errors.push({
+        type: 'error',
+        message: 'Unclosed link bracket',
+        line: index + 1,
+        suggestion: 'Add closing ] bracket'
+      });
+    }
+  });
+
+  // Check for excessive header nesting
+  lines.forEach((line, index) => {
+    const headerMatch = line.match(/^(#{7,})\s/);
+    if (headerMatch) {
+      errors.push({
+        type: 'error',
+        message: 'Header nesting too deep (max 6 levels)',
+        line: index + 1,
+        suggestion: `Use ${headerMatch[1].slice(0, 6)} instead of ${headerMatch[1]}`
+      });
+    }
+
+    // Check for headers without space
+    const headerNoSpace = line.match(/^#{1,6}[^#\s]/);
+    if (headerNoSpace) {
+      warnings.push({
+        type: 'warning',
+        message: 'Header should have space after #',
+        line: index + 1,
+        suggestion: 'Add space after # symbols'
+      });
+    }
+  });
+
+  // Check for empty headers
+  lines.forEach((line, index) => {
+    const emptyHeader = line.match(/^#{1,6}\s*$/);
+    if (emptyHeader) {
+      warnings.push({
+        type: 'warning',
+        message: 'Empty header detected',
+        line: index + 1,
+        suggestion: 'Add text content after the header'
+      });
+    }
+  });
+
+  // Check for inconsistent list markers
+  const listLines = lines.filter((line, index) => {
+    const isListItem = line.match(/^\s*[-*+]\s/) || line.match(/^\s*\d+\.\s/);
+    return isListItem;
+  });
+
+  if (listLines.length > 1) {
+    const unorderedMarkers = new Set();
+    listLines.forEach(line => {
+      const marker = line.match(/^\s*([-*+])\s/);
+      if (marker) {
+        unorderedMarkers.add(marker[1]);
+      }
+    });
+
+    if (unorderedMarkers.size > 1) {
+      warnings.push({
+        type: 'warning',
+        message: 'Inconsistent list markers',
+        suggestion: 'Use consistent markers (-, *, or +) for unordered lists'
+      });
+    }
   }
 
-  // Check for excessive nesting (more than 6 header levels)
-  const headers = markdown.match(/^#{7,}\s/gm);
-  if (headers && headers.length > 0) {
-    errors.push("Header nesting too deep (max 6 levels)");
-  }
+  // Check for missing alt text in images
+  lines.forEach((line, index) => {
+    const imageNoAlt = line.match(/!\[\]\([^)]+\)/g);
+    if (imageNoAlt) {
+      warnings.push({
+        type: 'warning',
+        message: 'Image missing alt text',
+        line: index + 1,
+        suggestion: 'Add descriptive alt text: ![description](url)'
+      });
+    }
+  });
+
+  // Check for trailing spaces
+  lines.forEach((line, index) => {
+    if (line.endsWith(' ') && line.trim() !== '') {
+      warnings.push({
+        type: 'warning',
+        message: 'Trailing whitespace',
+        line: index + 1,
+        suggestion: 'Remove trailing spaces'
+      });
+    }
+  });
 
   return {
     isValid: errors.length === 0,
     errors,
+    warnings,
   };
 }

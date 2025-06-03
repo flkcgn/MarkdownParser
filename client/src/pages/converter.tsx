@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRightLeft, Download, Trash2, Clock, FileText, Code, History } from "lucide-react";
+import { ArrowRightLeft, Download, Trash2, Clock, FileText, Code, History, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import MarkdownInput from "@/components/markdown-input";
 import JsonOutput from "@/components/json-output";
 import FileUpload from "@/components/file-upload";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { validateMarkdown } from "@/lib/markdown-parser";
 import type { ConvertMarkdownRequest, ConvertMarkdownResponse, Conversion } from "@shared/schema";
 
 export default function ConverterPage() {
@@ -248,7 +249,7 @@ export default function ConverterPage() {
         </Card>
 
         {/* Stats Cards */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -289,6 +290,67 @@ export default function ConverterPage() {
                   <p className="text-sm font-medium text-slate-800">{stats.processTime}</p>
                   <p className="text-xs text-slate-500">Processing time</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                {(() => {
+                  if (!markdown.trim()) {
+                    return (
+                      <>
+                        <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mr-3">
+                          <FileText className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">No Content</p>
+                          <p className="text-xs text-slate-500">Enter markdown to validate</p>
+                        </div>
+                      </>
+                    );
+                  }
+                  
+                  const validation = validateMarkdown(markdown);
+                  if (validation.errors.length > 0) {
+                    return (
+                      <>
+                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{validation.errors.length} Error{validation.errors.length !== 1 ? 's' : ''}</p>
+                          <p className="text-xs text-slate-500">Fix errors to convert</p>
+                        </div>
+                      </>
+                    );
+                  } else if (validation.warnings.length > 0) {
+                    return (
+                      <>
+                        <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{validation.warnings.length} Warning{validation.warnings.length !== 1 ? 's' : ''}</p>
+                          <p className="text-xs text-slate-500">Style suggestions</p>
+                        </div>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">Valid Syntax</p>
+                          <p className="text-xs text-slate-500">Ready to convert</p>
+                        </div>
+                      </>
+                    );
+                  }
+                })()}
               </div>
             </CardContent>
           </Card>
