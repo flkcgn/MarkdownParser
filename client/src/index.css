@@ -276,8 +276,12 @@
 
   /* Enhanced focus styles for textarea when jumping to lines */
   .textarea-highlight {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-    transition: box-shadow 0.2s ease-in-out;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.7), 0 0 20px rgba(59, 130, 246, 0.3);
+    transition: box-shadow 0.3s ease-in-out;
+  }
+
+  .dark .textarea-highlight {
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.8), 0 0 20px rgba(96, 165, 250, 0.4);
   }
 
   /* Custom scrollbar for code areas */
