@@ -52,9 +52,15 @@ export default function MarkdownInput({ value, onChange, onConvert, isLoading }:
     textarea.focus();
     textarea.setSelectionRange(position, position + (lines[lineNumber - 1]?.length || 0));
     
+    // Add highlight effect
+    textarea.classList.add('textarea-highlight');
+    setTimeout(() => {
+      textarea.classList.remove('textarea-highlight');
+    }, 2000);
+    
     // Scroll to the line
     const lineHeight = 20; // Approximate line height in pixels
-    const scrollTop = (lineNumber - 1) * lineHeight;
+    const scrollTop = Math.max(0, (lineNumber - 5) * lineHeight); // Show some context above
     textarea.scrollTop = scrollTop;
   };
 
