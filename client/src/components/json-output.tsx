@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { Copy, Code, Download } from "lucide-react";
+import { Copy, Code, Download, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface JsonOutputProps {
   jsonData: any;
@@ -9,6 +10,7 @@ interface JsonOutputProps {
 
 export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
   const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     if (!jsonData) return;
@@ -16,6 +18,8 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
     try {
       const jsonString = JSON.stringify(jsonData, null, 2);
       await navigator.clipboard.writeText(jsonString);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
       toast({
         title: "Copied to clipboard",
         description: "JSON has been copied to your clipboard",
@@ -43,13 +47,22 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
         <h3 className="text-lg font-semibold text-slate-800">JSON Output</h3>
         <div className="flex items-center space-x-2">
           <Button
-            variant="ghost"
-            size="sm"
             onClick={handleCopy}
             disabled={!jsonData || isLoading}
-            title="Copy JSON"
+            className="bg-primary hover:bg-primary/90 text-white"
+            size="sm"
           >
-            <Copy className="h-4 w-4" />
+            {copied ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy JSON
+              </>
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -63,7 +76,7 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
         </div>
       </div>
       
-      <div className="bg-slate-50 rounded-lg p-4 h-96 overflow-auto relative">
+      <div className="bg-slate-50 rounded-lg p-4 h-96 overflow-auto relative group">
         {isLoading ? (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-lg flex items-center justify-center">
             <div className="flex items-center space-x-3">
@@ -72,9 +85,29 @@ export default function JsonOutput({ jsonData, isLoading }: JsonOutputProps) {
             </div>
           </div>
         ) : jsonData ? (
-          <pre className="font-mono text-sm text-slate-700">
-            <code>{JSON.stringify(jsonData, null, 2)}</code>
-          </pre>
+          <>
+            <pre className="font-mono text-sm text-slate-700">
+              <code>{JSON.stringify(jsonData, null, 2)}</code>
+            </pre>
+            {/* Floating copy button */}
+            <Button
+              onClick={handleCopy}
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 hover:bg-white border border-slate-200 text-slate-700 hover:text-slate-900 shadow-sm"
+              size="sm"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3 w-3 mr-1" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copy
+                </>
+              )}
+            </Button>
+          </>
         ) : (
           <div className="text-slate-500 text-center mt-20">
             Enter markdown content and click convert to see JSON output
