@@ -1,7 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { convertMarkdownSchema, convertMarkdownResponseSchema } from "@shared/schema";
+import {
+  convertMarkdownSchema,
+  convertMarkdownResponseSchema,
+  saveNoteSchema,
+  saveNoteResponseSchema,
+} from "@shared/schema";
+import { parseMarkdownToStructuredJson } from "@shared/parser";
 // marked is installed only for the client, avoid using it here to keep the
 // server lightweight. We'll implement our own simple word counter instead of
 // relying on marked for stripping markdown.
@@ -25,300 +31,6 @@ const upload = multer({
   },
 });
 
-function countWords(markdown: string): number {
-  // Remove fenced code blocks
-  let text = markdown.replace(/```[\s\S]*?```/g, " ");
-  // Remove inline code
-  text = text.replace(/`[^`]*`/g, " ");
-  // Remove images entirely
-  text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, " ");
-  // Replace links with just their text
-  text = text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-  // Strip blockquote markers
-  text = text.replace(/^\s*>\s?/gm, "");
-  // Strip heading markers
-  text = text.replace(/^\s{0,3}#{1,6}\s+/gm, "");
-  // Strip list markers
-  text = text.replace(/^\s*[-*+]\s+/gm, "");
-  text = text.replace(/^\s*\d+\.\s+/gm, "");
-  // Remove emphasis markers
-  text = text.replace(/[*_~]/g, "");
-  // Remove HTML tags
-  text = text.replace(/<[^>]+>/g, " ");
-  // Normalize whitespace
-  text = text.replace(/[\n\r\t]+/g, " ");
-  text = text.replace(/\s+/g, " ").trim();
-  return text ? text.split(/\s+/).length : 0;
-}
-
-function parseMarkdownToStructuredJson(markdown: string): any {
-  const startTime = Date.now();
-  
-  const elements: any[] = [];
-  let elementCount = 0;
-
-  // Parse using regex patterns for simplicity and reliability
-  const lines = markdown.split('\n');
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    
-    if (!line) {
-      i++;
-      continue;
-    }
-
-    // Headers
-    const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    if (headerMatch) {
-      elements.push({
-        type: "heading",
-        level: headerMatch[1].length,
-        content: headerMatch[2],
-      });
-      elementCount++;
-      i++;
-      continue;
-    }
-
-    // Code blocks
-    if (line.startsWith('```')) {
-      const langMatch = line.match(/^```(\w+)?/);
-      const language = langMatch?.[1] || 'text';
-      const codeLines: string[] = [];
-      i++;
-      
-      while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      
-      elements.push({
-        type: "code_block",
-        language: language,
-        content: codeLines.join('\n'),
-      });
-      elementCount++;
-      i++; // Skip closing ```
-      continue;
-    }
-
-    // Blockquotes
-    if (line.startsWith('>')) {
-      const content = line.substring(1).trim();
-      elements.push({
-        type: "blockquote",
-        content: content,
-      });
-      elementCount++;
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (line.match(/^[-*_]{3,}$/)) {
-      elements.push({
-        type: "horizontal_rule",
-      });
-      elementCount++;
-      i++;
-      continue;
-    }
-
-    // Lists (unordered)
-    const unorderedListMatch = line.match(/^[\s]*[-*+]\s+(.+)$/);
-    if (unorderedListMatch) {
-      const items: any[] = [];
-      
-      while (i < lines.length) {
-        const currentLine = lines[i].trim();
-        const listMatch = currentLine.match(/^[\s]*[-*+]\s+(.+)$/);
-        if (listMatch) {
-          items.push({
-            type: "list_item",
-            content: listMatch[1],
-          });
-          i++;
-        } else if (currentLine === '') {
-          i++;
-        } else {
-          break;
-        }
-      }
-      
-      elements.push({
-        type: "list",
-        ordered: false,
-        items: items,
-      });
-      elementCount++;
-      continue;
-    }
-
-    // Lists (ordered)
-    const orderedListMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
-    if (orderedListMatch) {
-      const items: any[] = [];
-      
-      while (i < lines.length) {
-        const currentLine = lines[i].trim();
-        const listMatch = currentLine.match(/^[\s]*\d+\.\s+(.+)$/);
-        if (listMatch) {
-          items.push({
-            type: "list_item",
-            content: listMatch[1],
-          });
-          i++;
-        } else if (currentLine === '') {
-          i++;
-        } else {
-          break;
-        }
-      }
-      
-      elements.push({
-        type: "list",
-        ordered: true,
-        items: items,
-      });
-      elementCount++;
-      continue;
-    }
-
-    // Regular paragraphs
-    const children = parseInlineElements(line);
-    if (children.length === 1 && children[0].type === 'text') {
-      elements.push({
-        type: "paragraph",
-        content: children[0].content,
-      });
-    } else {
-      elements.push({
-        type: "paragraph",
-        children: children,
-      });
-    }
-    elementCount++;
-    i++;
-  }
-
-  const endTime = Date.now();
-  const processTime = ((endTime - startTime) / 1000).toFixed(3) + 's';
-  
-  const result = {
-    type: "document",
-    children: elements,
-  };
-
-  const jsonString = JSON.stringify(result, null, 2);
-  const jsonSize = (jsonString.length / 1024).toFixed(1) + ' KB';
-  const wordCount = countWords(markdown);
-
-  return {
-    json: result,
-    stats: {
-      elements: elementCount,
-      jsonSize,
-      processTime,
-    },
-    metadata: {
-      word_count: wordCount,
-    },
-  };
-}
-
-function parseInlineElements(text: string): any[] {
-  const elements: any[] = [];
-  
-  // Simple parser for inline elements
-  const strongRegex = /\*\*(.*?)\*\*/g;
-  const emRegex = /\*(.*?)\*/g;
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const codeRegex = /`([^`]+)`/g;
-
-  let lastIndex = 0;
-  const matches: Array<{ type: string; content: string; url?: string; start: number; end: number }> = [];
-
-  // Find all matches
-  let match: RegExpExecArray | null;
-  strongRegex.lastIndex = 0;
-  while ((match = strongRegex.exec(text)) !== null) {
-    matches.push({ type: 'strong', content: match[1], start: match.index, end: match.index + match[0].length });
-  }
-  
-  emRegex.lastIndex = 0;
-  while ((match = emRegex.exec(text)) !== null) {
-    // Skip if this is part of a strong match
-    if (!matches.some(m => match!.index >= m.start && match!.index < m.end)) {
-      matches.push({ type: 'emphasis', content: match[1], start: match.index, end: match.index + match[0].length });
-    }
-  }
-  
-  linkRegex.lastIndex = 0;
-  while ((match = linkRegex.exec(text)) !== null) {
-    matches.push({ type: 'link', content: match[1], url: match[2], start: match.index, end: match.index + match[0].length });
-  }
-  
-  codeRegex.lastIndex = 0;
-  while ((match = codeRegex.exec(text)) !== null) {
-    matches.push({ type: 'code', content: match[1], start: match.index, end: match.index + match[0].length });
-  }
-
-  // Sort matches by position
-  matches.sort((a, b) => a.start - b.start);
-
-  // Build elements array
-  matches.forEach(match => {
-    // Add text before this match
-    if (match.start > lastIndex) {
-      const textContent = text.slice(lastIndex, match.start);
-      if (textContent.trim()) {
-        elements.push({ type: 'text', content: textContent });
-      }
-    }
-
-    // Add the match element
-    if (match.type === 'link') {
-      elements.push({ type: 'link', content: match.content, url: match.url });
-    } else {
-      elements.push({ type: match.type, content: match.content });
-    }
-
-    lastIndex = match.end;
-  });
-
-  // Add remaining text
-  if (lastIndex < text.length) {
-    const remaining = text.slice(lastIndex);
-    if (remaining.trim()) {
-      elements.push({ type: 'text', content: remaining });
-    }
-  }
-
-  // If no inline elements found, return simple text
-  if (elements.length === 0 && text.trim()) {
-    return [{ type: 'text', content: text.replace(/<[^>]*>/g, '') }];
-  }
-
-  return elements;
-}
-
-function parseListItems(body: string): any[] {
-  const items: any[] = [];
-  const itemRegex = /<li>([\s\S]*?)<\/li>/g;
-  let match;
-
-  while ((match = itemRegex.exec(body)) !== null) {
-    const itemContent = match[1].replace(/<[^>]*>/g, '').trim();
-    items.push({
-      type: "list_item",
-      content: itemContent,
-    });
-  }
-
-  return items;
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Convert markdown to JSON
@@ -369,6 +81,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Internal server error" });
       }
+    }
+  });
+
+  // Create or update a note
+  app.post("/api/notes", async (req, res) => {
+    try {
+      const validated = saveNoteSchema.parse(req.body);
+      const result = parseMarkdownToStructuredJson(validated.markdown);
+
+      const mergedTags = Array.from(new Set([
+        ...result.metadata.tags,
+        ...(validated.tags || []),
+      ]));
+
+      const noteData = {
+        title: validated.title,
+        markdownContent: validated.markdown,
+        jsonOutput: JSON.stringify(result.json),
+        tags: mergedTags.length ? mergedTags.join(',') : null,
+        wikilinks: result.metadata.wikilinks.join(','),
+        wordCount: result.metadata.word_count,
+        readingTime: result.metadata.reading_time,
+        updatedAt: new Date(result.metadata.updated_at),
+      };
+
+      let note;
+      if (validated.id) {
+        note = await storage.updateNote(validated.id, noteData);
+      } else {
+        note = await storage.createNote({
+          ...noteData,
+          createdAt: new Date(result.metadata.created_at),
+        });
+      }
+
+      const response = saveNoteResponseSchema.parse({
+        ...result,
+        note,
+      });
+
+      res.json(response);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Internal server error" });
+      }
+    }
+  });
+
+  // Retrieve a single note and its backlinks
+  app.get("/api/notes/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const note = await storage.getNote(id);
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      const backlinks = (await storage.getBacklinks(note.title)).filter(
+        (b) => b.id !== note.id,
+      );
+
+      res.json({ note, backlinks });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch note" });
     }
   });
 
