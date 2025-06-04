@@ -2,9 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { convertMarkdownSchema, convertMarkdownResponseSchema } from "@shared/schema";
-// marked is installed only for the client, avoid using it here to keep the
-// server lightweight. We'll implement our own simple word counter instead of
-// relying on marked for stripping markdown.
+import { PKMParser } from "@shared/pkm-parser";
 import multer from "multer";
 import { randomUUID } from "crypto";
 import yaml from "yaml";

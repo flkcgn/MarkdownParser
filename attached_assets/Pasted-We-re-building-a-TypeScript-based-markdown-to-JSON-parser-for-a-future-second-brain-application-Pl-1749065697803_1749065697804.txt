@@ -1,0 +1,76 @@
+We’re building a TypeScript-based markdown-to-JSON parser for a future second brain application.
+
+Please enhance the existing web application module (TypeScript) with the following Personal Knowledge Management (PKM) features and update the output format accordingly.
+
+---
+
+🧠 Features to implement:
+
+1. **YAML Frontmatter Parsing**
+   - Use `gray-matter` to extract metadata.
+   - Populate fields like:
+     - `created` (date)
+     - `modified` (date)
+     - `tags` (array)
+     - `alias` (string or array)
+     - any additional custom fields
+
+2. **Hashtag Extraction**
+   - Find all inline `#tags` in the markdown body.
+   - Add them to the `tags` array if not already present.
+
+3. **Internal Wikilink Detection**
+   - Detect `[[Link to another note]]`
+   - Add linked note titles to `internal_links` in metadata
+   - Replace them in content with structured objects:
+     ```ts
+     {
+       type: 'internal_link',
+       note: 'Target Note Title',
+       text: 'Target Note Title'
+     }
+     ```
+
+4. **External Link Detection**
+   - Detect `[text](https://url.com)`
+   - Add all URLs to `external_links` in metadata
+   - Replace them in content with:
+     ```ts
+     {
+       type: 'external_link',
+       url: 'https://url.com',
+       text: 'text'
+     }
+     ```
+
+5. **Word Count**
+   - Calculate a simple word count from visible text content (excluding YAML).
+   - Store in `metadata.word_count`.
+
+6. **Note ID Generation**
+   - Generate a unique ID for the note (e.g., UUID or slugified title).
+   - Store as `id`.
+
+---
+
+📦 Final JSON Output Format:
+
+The exported JSON object for each note should follow this structure:
+
+```ts
+{
+  id: string,
+  title: string,
+  metadata: {
+    created?: string,
+    modified?: string,
+    tags?: string[],
+    alias?: string | string[],
+    word_count: number,
+    internal_links: string[],
+    external_links: string[],
+    backlinks: string[] // leave empty for now
+    // + any custom frontmatter fields
+  },
+  content: MarkdownBlock[] // already parsed, just wrap existing output here
+}
