@@ -284,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload and convert markdown file
+  // Upload and convert markdown file with PKM features
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -292,7 +292,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const markdown = req.file.buffer.toString('utf-8');
-      const result = parseMarkdownToStructuredJson(markdown);
+      const filename = req.file.originalname.replace(/\.[^/.]+$/, "");
+      
+      // Use PKM parser with filename context
+      const pkmResult = PKMParser.parse(markdown, filename);
+      const pkmNote = PKMParser.createPKMNote(pkmResult, filename);
+      
+      // Enhanced JSON structure with PKM features
+      const structuredContent = parseMarkdownToStructuredJson(markdown);
+      const result = {
+        success: true,
+        json: {
+          ...pkmNote,
+          structured_content: structuredContent.json,
+          pkm_metadata: {
+            frontmatter: pkmResult.frontmatter,
+            internal_links: pkmResult.internalLinks,
+            external_links: pkmResult.externalLinks,
+            hashtags: pkmResult.hashtags,
+            word_count: pkmResult.wordCount,
+            title: pkmResult.title
+          }
+        }
+      };
       
       // Store the conversion
       await storage.createConversion({

@@ -204,11 +204,9 @@ export class PKMParser {
 
   // Create full PKM note structure
   static createPKMNote(
-    markdown: string, 
-    existingContent: any, 
+    parseResult: PKMParseResult, 
     filename?: string
   ): PKMNote {
-    const parseResult = this.parse(markdown, filename);
     
     // Merge frontmatter tags with extracted hashtags
     const frontmatterTags = Array.isArray(parseResult.frontmatter.tags) 
@@ -252,7 +250,7 @@ export class PKMParser {
       id: this.generateNoteId(parseResult.title),
       title: parseResult.title,
       metadata,
-      content: existingContent
+      content: parseResult.content
     };
   }
 }
