@@ -132,6 +132,8 @@ function example() {
           warnings={validation.warnings}
           isValid={validation.isValid}
           onJumpToLine={handleJumpToLine}
+          onApplyFix={onChange}
+          currentMarkdown={value}
         />
       )}
       
