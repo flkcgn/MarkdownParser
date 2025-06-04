@@ -2,10 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { convertMarkdownSchema, convertMarkdownResponseSchema } from "@shared/schema";
-import { PKMParser } from "@shared/pkm-parser";
+// marked is installed only for the client, avoid using it here to keep the
+// server lightweight. We'll implement our own simple word counter instead of
+// relying on marked for stripping markdown.
 import multer from "multer";
-import { randomUUID } from "crypto";
-import yaml from "yaml";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -53,58 +53,33 @@ function countWords(markdown: string): number {
 
 function parseMarkdownToStructuredJson(markdown: string): any {
   const startTime = Date.now();
-
-  let frontmatter: Record<string, any> = {};
-  if (markdown.startsWith('---')) {
-    const end = markdown.indexOf('---', 3);
-    if (end !== -1) {
-      try {
-        frontmatter = yaml.parse(markdown.slice(3, end).trim()) || {};
-      } catch {
-        frontmatter = {};
-      }
-      markdown = markdown.slice(end + 3).replace(/^\s+/, '');
-    }
-  }
-
-  const tags = new Set<string>();
-  if (Array.isArray(frontmatter.tags)) {
-    frontmatter.tags.forEach((t: string) => tags.add(t));
-  } else if (typeof frontmatter.tags === 'string') {
-    frontmatter.tags.split(/[,\s]+/).forEach((t) => t && tags.add(t));
-  }
-
-  const metadata: Record<string, any> = {};
-  if (frontmatter.created) metadata.created = new Date(frontmatter.created).toISOString();
-  if (frontmatter.modified) metadata.modified = new Date(frontmatter.modified).toISOString();
-  if (frontmatter.alias) metadata.alias = frontmatter.alias;
-
-  const custom = { ...frontmatter };
-  delete custom.tags; delete custom.alias; delete custom.created; delete custom.modified; delete custom.title;
-  Object.assign(metadata, custom);
-
-  const internalLinks = new Set<string>();
-  const externalLinks = new Set<string>();
-
-  const lines = markdown.split('\n');
-  const content: any[] = [];
+  
+  const elements: any[] = [];
   let elementCount = 0;
-  let title: string | undefined = frontmatter.title;
+
+  // Parse using regex patterns for simplicity and reliability
+  const lines = markdown.split('\n');
   let i = 0;
 
   while (i < lines.length) {
     const line = lines[i].trim();
-
-    if (!line) { i++; continue; }
+    
+    if (!line) {
+      i++;
+      continue;
+    }
 
     // Headers
     const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (headerMatch) {
-      const level = headerMatch[1].length;
-      const text = headerMatch[2];
-      content.push({ type: 'heading', level, text });
-      if (!title && level === 1) title = text;
-      elementCount++; i++; continue;
+      elements.push({
+        type: "heading",
+        level: headerMatch[1].length,
+        content: headerMatch[2],
+      });
+      elementCount++;
+      i++;
+      continue;
     }
 
     // Code blocks
@@ -113,159 +88,245 @@ function parseMarkdownToStructuredJson(markdown: string): any {
       const language = langMatch?.[1] || 'text';
       const codeLines: string[] = [];
       i++;
+      
       while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i]); i++; }
-      content.push({ type: 'code_block', language, code: codeLines.join('\n') });
-      elementCount++; i++; continue;
+        codeLines.push(lines[i]);
+        i++;
+      }
+      
+      elements.push({
+        type: "code_block",
+        language: language,
+        content: codeLines.join('\n'),
+      });
+      elementCount++;
+      i++; // Skip closing ```
+      continue;
+    }
+
+    // Blockquotes
+    if (line.startsWith('>')) {
+      const content = line.substring(1).trim();
+      elements.push({
+        type: "blockquote",
+        content: content,
+      });
+      elementCount++;
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.match(/^[-*_]{3,}$/)) {
+      elements.push({
+        type: "horizontal_rule",
+      });
+      elementCount++;
+      i++;
+      continue;
     }
 
     // Lists (unordered)
-    const unorderedListMatch = line.match(/^[-*+]\s+(.+)/);
-    const orderedListMatch = line.match(/^\d+\.\s+(.+)/);
-    if (unorderedListMatch || orderedListMatch) {
-      const ordered = Boolean(orderedListMatch);
+    const unorderedListMatch = line.match(/^[\s]*[-*+]\s+(.+)$/);
+    if (unorderedListMatch) {
       const items: any[] = [];
+      
       while (i < lines.length) {
-        const current = lines[i].trim();
-        const match = ordered ? current.match(/^\d+\.\s+(.+)/) : current.match(/^[-*+]\s+(.+)/);
-        if (match) {
-          const inline = parseInlineElements(match[1], internalLinks, externalLinks);
-          if (inline.length === 1 && inline[0].type === 'text') {
-            items.push({ text: inline[0].text });
-          } else {
-            items.push({ inline });
-          }
+        const currentLine = lines[i].trim();
+        const listMatch = currentLine.match(/^[\s]*[-*+]\s+(.+)$/);
+        if (listMatch) {
+          items.push({
+            type: "list_item",
+            content: listMatch[1],
+          });
           i++;
-        } else if (current === '') {
-          i++; } else { break; }
+        } else if (currentLine === '') {
+          i++;
+        } else {
+          break;
+        }
       }
-      content.push({ type: 'list', ordered, items });
-      elementCount++; continue;
+      
+      elements.push({
+        type: "list",
+        ordered: false,
+        items: items,
+      });
+      elementCount++;
+      continue;
+    }
+
+    // Lists (ordered)
+    const orderedListMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
+    if (orderedListMatch) {
+      const items: any[] = [];
+      
+      while (i < lines.length) {
+        const currentLine = lines[i].trim();
+        const listMatch = currentLine.match(/^[\s]*\d+\.\s+(.+)$/);
+        if (listMatch) {
+          items.push({
+            type: "list_item",
+            content: listMatch[1],
+          });
+          i++;
+        } else if (currentLine === '') {
+          i++;
+        } else {
+          break;
+        }
+      }
+      
+      elements.push({
+        type: "list",
+        ordered: true,
+        items: items,
+      });
+      elementCount++;
+      continue;
     }
 
     // Regular paragraphs
-    const inline = parseInlineElements(line, internalLinks, externalLinks);
-    if (inline.length === 1 && inline[0].type === 'text') {
-      content.push({ type: 'paragraph', text: inline[0].text });
+    const children = parseInlineElements(line);
+    if (children.length === 1 && children[0].type === 'text') {
+      elements.push({
+        type: "paragraph",
+        content: children[0].content,
+      });
     } else {
-      content.push({ type: 'paragraph', inline });
+      elements.push({
+        type: "paragraph",
+        children: children,
+      });
     }
-    elementCount++; i++;
+    elementCount++;
+    i++;
   }
 
-  const withoutCode = markdown.replace(/```[\s\S]*?```/g, ' ');
-  const hashtagRegex = /(^|\s)#([a-zA-Z0-9_/-]+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = hashtagRegex.exec(withoutCode)) !== null) {
-    tags.add(m[2]);
-  }
-
-  metadata.tags = Array.from(tags);
-  metadata.internal_links = Array.from(internalLinks);
-  metadata.external_links = Array.from(externalLinks);
-  metadata.backlinks = [];
-  metadata.word_count = countWords(markdown);
-
-  const note = {
-    id: randomUUID(),
-    title: title || 'Untitled',
-    metadata,
-    content,
+  const endTime = Date.now();
+  const processTime = ((endTime - startTime) / 1000).toFixed(3) + 's';
+  
+  const result = {
+    type: "document",
+    children: elements,
   };
 
-  const jsonString = JSON.stringify(note, null, 2);
+  const jsonString = JSON.stringify(result, null, 2);
   const jsonSize = (jsonString.length / 1024).toFixed(1) + ' KB';
-  const processTime = ((Date.now() - startTime) / 1000).toFixed(3) + 's';
+  const wordCount = countWords(markdown);
 
   return {
-    json: note,
+    json: result,
     stats: {
       elements: elementCount,
       jsonSize,
       processTime,
     },
-    metadata,
+    metadata: {
+      word_count: wordCount,
+    },
   };
 }
 
-function parseInlineElements(text: string, internalLinks: Set<string>, externalLinks: Set<string>): any[] {
+function parseInlineElements(text: string): any[] {
   const elements: any[] = [];
-  const regex = /(\[\[[^\]]+\]\]|\[([^\]]+)\]\(([^)]+)\))/g;
+  
+  // Simple parser for inline elements
+  const strongRegex = /\*\*(.*?)\*\*/g;
+  const emRegex = /\*(.*?)\*/g;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const codeRegex = /`([^`]+)`/g;
+
   let lastIndex = 0;
+  const matches: Array<{ type: string; content: string; url?: string; start: number; end: number }> = [];
+
+  // Find all matches
   let match: RegExpExecArray | null;
+  strongRegex.lastIndex = 0;
+  while ((match = strongRegex.exec(text)) !== null) {
+    matches.push({ type: 'strong', content: match[1], start: match.index, end: match.index + match[0].length });
+  }
+  
+  emRegex.lastIndex = 0;
+  while ((match = emRegex.exec(text)) !== null) {
+    // Skip if this is part of a strong match
+    if (!matches.some(m => match!.index >= m.start && match!.index < m.end)) {
+      matches.push({ type: 'emphasis', content: match[1], start: match.index, end: match.index + match[0].length });
+    }
+  }
+  
+  linkRegex.lastIndex = 0;
+  while ((match = linkRegex.exec(text)) !== null) {
+    matches.push({ type: 'link', content: match[1], url: match[2], start: match.index, end: match.index + match[0].length });
+  }
+  
+  codeRegex.lastIndex = 0;
+  while ((match = codeRegex.exec(text)) !== null) {
+    matches.push({ type: 'code', content: match[1], start: match.index, end: match.index + match[0].length });
+  }
 
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      const plain = text.slice(lastIndex, match.index);
-      if (plain.trim()) elements.push({ type: 'text', text: plain });
+  // Sort matches by position
+  matches.sort((a, b) => a.start - b.start);
+
+  // Build elements array
+  matches.forEach(match => {
+    // Add text before this match
+    if (match.start > lastIndex) {
+      const textContent = text.slice(lastIndex, match.start);
+      if (textContent.trim()) {
+        elements.push({ type: 'text', content: textContent });
+      }
     }
 
-    if (match[0].startsWith('[[')) {
-      const wiki = match[0].slice(2, -2);
-      const pipeIndex = wiki.indexOf('|');
-      const hashIndex = wiki.indexOf('#');
-      let note = wiki;
-      let display = wiki;
-      if (pipeIndex !== -1) {
-        note = wiki.slice(0, pipeIndex);
-        display = wiki.slice(pipeIndex + 1);
-      }
-      if (hashIndex !== -1) {
-        note = note.slice(0, hashIndex);
-      }
-      note = note.trim();
-      display = display.trim();
-      internalLinks.add(note);
-      elements.push({ type: 'internal_link', note, text: display });
+    // Add the match element
+    if (match.type === 'link') {
+      elements.push({ type: 'link', content: match.content, url: match.url });
     } else {
-      const display = match[2];
-      const url = match[3];
-      externalLinks.add(url);
-      elements.push({ type: 'external_link', url, text: display });
+      elements.push({ type: match.type, content: match.content });
     }
-    lastIndex = regex.lastIndex;
-  }
 
+    lastIndex = match.end;
+  });
+
+  // Add remaining text
   if (lastIndex < text.length) {
-    const tail = text.slice(lastIndex);
-    if (tail.trim()) elements.push({ type: 'text', text: tail });
+    const remaining = text.slice(lastIndex);
+    if (remaining.trim()) {
+      elements.push({ type: 'text', content: remaining });
+    }
   }
 
+  // If no inline elements found, return simple text
   if (elements.length === 0 && text.trim()) {
-    elements.push({ type: 'text', text });
+    return [{ type: 'text', content: text.replace(/<[^>]*>/g, '') }];
   }
 
   return elements;
 }
 
+function parseListItems(body: string): any[] {
+  const items: any[] = [];
+  const itemRegex = /<li>([\s\S]*?)<\/li>/g;
+  let match;
+
+  while ((match = itemRegex.exec(body)) !== null) {
+    const itemContent = match[1].replace(/<[^>]*>/g, '').trim();
+    items.push({
+      type: "list_item",
+      content: itemContent,
+    });
+  }
+
+  return items;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Convert markdown to JSON with PKM features
+  // Convert markdown to JSON
   app.post("/api/convert", async (req, res) => {
     try {
       const validatedData = convertMarkdownSchema.parse(req.body);
       
-      // Use PKM parser for comprehensive second brain functionality
-      const pkmResult = PKMParser.parse(validatedData.markdown);
-      const pkmNote = PKMParser.createPKMNote(pkmResult);
-      
-      // Enhanced JSON structure with PKM features and existing structured content
-      const structuredContent = parseMarkdownToStructuredJson(validatedData.markdown);
-      const result = {
-        success: true,
-        json: {
-          ...pkmNote,
-          structured_content: structuredContent.json,
-          pkm_metadata: {
-            frontmatter: pkmResult.frontmatter,
-            internal_links: pkmResult.internalLinks,
-            external_links: pkmResult.externalLinks,
-            hashtags: pkmResult.hashtags,
-            word_count: pkmResult.wordCount,
-            title: pkmResult.title
-          }
-        }
-      };
+      const result = parseMarkdownToStructuredJson(validatedData.markdown);
       
       // Store the conversion
       await storage.createConversion({
@@ -284,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload and convert markdown file with PKM features
+  // Upload and convert markdown file
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -292,29 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const markdown = req.file.buffer.toString('utf-8');
-      const filename = req.file.originalname.replace(/\.[^/.]+$/, "");
-      
-      // Use PKM parser with filename context
-      const pkmResult = PKMParser.parse(markdown, filename);
-      const pkmNote = PKMParser.createPKMNote(pkmResult, filename);
-      
-      // Enhanced JSON structure with PKM features
-      const structuredContent = parseMarkdownToStructuredJson(markdown);
-      const result = {
-        success: true,
-        json: {
-          ...pkmNote,
-          structured_content: structuredContent.json,
-          pkm_metadata: {
-            frontmatter: pkmResult.frontmatter,
-            internal_links: pkmResult.internalLinks,
-            external_links: pkmResult.externalLinks,
-            hashtags: pkmResult.hashtags,
-            word_count: pkmResult.wordCount,
-            title: pkmResult.title
-          }
-        }
-      };
+      const result = parseMarkdownToStructuredJson(markdown);
       
       // Store the conversion
       await storage.createConversion({
