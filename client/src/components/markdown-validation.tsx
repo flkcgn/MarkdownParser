@@ -1,13 +1,17 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, XCircle, CheckCircle, Lightbulb } from "lucide-react";
+import { AlertTriangle, XCircle, CheckCircle, Lightbulb, Wand2, RotateCcw } from "lucide-react";
 import type { ValidationError } from "@/lib/markdown-parser";
+import { applyAutofix, applyAllAutofixes } from "@/lib/markdown-parser";
 
 interface MarkdownValidationProps {
   errors: ValidationError[];
   warnings: ValidationError[];
   isValid: boolean;
   onJumpToLine?: (line: number) => void;
+  onApplyFix?: (fixedMarkdown: string) => void;
+  currentMarkdown?: string;
 }
 
 export default function MarkdownValidation({ errors, warnings, isValid, onJumpToLine }: MarkdownValidationProps) {

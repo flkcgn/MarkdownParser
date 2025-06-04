@@ -114,6 +114,12 @@ export interface ValidationError {
   message: string;
   line?: number;
   suggestion?: string;
+  autofix?: {
+    oldText: string;
+    newText: string;
+    startIndex: number;
+    endIndex: number;
+  };
 }
 
 export function validateMarkdown(markdown: string): {
@@ -172,13 +178,20 @@ export function validateMarkdown(markdown: string): {
     }
 
     // Check for headers without space
-    const headerNoSpace = line.match(/^#{1,6}[^#\s]/);
+    const headerNoSpace = line.match(/^(#{1,6})([^#\s].*)/);
     if (headerNoSpace) {
+      const lineStart = lines.slice(0, index).join('\n').length + (index > 0 ? 1 : 0);
       warnings.push({
         type: 'warning',
         message: 'Header should have space after #',
         line: index + 1,
-        suggestion: 'Add space after # symbols'
+        suggestion: 'Add space after # symbols',
+        autofix: {
+          oldText: headerNoSpace[0],
+          newText: `${headerNoSpace[1]} ${headerNoSpace[2]}`,
+          startIndex: lineStart,
+          endIndex: lineStart + headerNoSpace[0].length
+        }
       });
     }
   });
@@ -224,11 +237,25 @@ export function validateMarkdown(markdown: string): {
   lines.forEach((line, index) => {
     const imageNoAlt = line.match(/!\[\]\([^)]+\)/g);
     if (imageNoAlt) {
-      warnings.push({
-        type: 'warning',
-        message: 'Image missing alt text',
-        line: index + 1,
-        suggestion: 'Add descriptive alt text: ![description](url)'
+      imageNoAlt.forEach((match) => {
+        const lineStart = lines.slice(0, index).join('\n').length + (index > 0 ? 1 : 0);
+        const matchIndex = line.indexOf(match);
+        const matchStart = lineStart + matchIndex;
+        const url = match.replace(/!\[\]\(([^)]+)\)/, '$1');
+        const filename = url.split('/').pop()?.split('.')[0] || 'image';
+        
+        warnings.push({
+          type: 'warning',
+          message: 'Image missing alt text',
+          line: index + 1,
+          suggestion: 'Add descriptive alt text: ![description](url)',
+          autofix: {
+            oldText: match,
+            newText: `![${filename}](${url})`,
+            startIndex: matchStart,
+            endIndex: matchStart + match.length
+          }
+        });
       });
     }
   });
@@ -236,12 +263,22 @@ export function validateMarkdown(markdown: string): {
   // Check for trailing spaces
   lines.forEach((line, index) => {
     if (line.endsWith(' ') && line.trim() !== '') {
-      warnings.push({
-        type: 'warning',
-        message: 'Trailing whitespace',
-        line: index + 1,
-        suggestion: 'Remove trailing spaces'
-      });
+      const lineStart = lines.slice(0, index).join('\n').length + (index > 0 ? 1 : 0);
+      const trailingSpaceMatch = line.match(/(\s+)$/);
+      if (trailingSpaceMatch) {
+        warnings.push({
+          type: 'warning',
+          message: 'Trailing whitespace',
+          line: index + 1,
+          suggestion: 'Remove trailing spaces',
+          autofix: {
+            oldText: line,
+            newText: line.trimEnd(),
+            startIndex: lineStart,
+            endIndex: lineStart + line.length
+          }
+        });
+      }
     }
   });
 
@@ -250,4 +287,29 @@ export function validateMarkdown(markdown: string): {
     errors,
     warnings,
   };
+}
+
+export function applyAutofix(markdown: string, autofix: ValidationError['autofix']): string {
+  if (!autofix) return markdown;
+  
+  const { oldText, newText, startIndex, endIndex } = autofix;
+  return markdown.slice(0, startIndex) + newText + markdown.slice(endIndex);
+}
+
+export function applyAllAutofixes(markdown: string, validationErrors: ValidationError[]): string {
+  let result = markdown;
+  
+  // Sort by startIndex in descending order to apply fixes from end to beginning
+  // This prevents position shifts from affecting subsequent fixes
+  const sortedErrors = validationErrors
+    .filter(error => error.autofix)
+    .sort((a, b) => (b.autofix!.startIndex) - (a.autofix!.startIndex));
+  
+  for (const error of sortedErrors) {
+    if (error.autofix) {
+      result = applyAutofix(result, error.autofix);
+    }
+  }
+  
+  return result;
 }
