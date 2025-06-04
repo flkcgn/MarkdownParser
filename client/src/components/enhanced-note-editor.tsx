@@ -31,6 +31,7 @@ import MarkdownInput from "@/components/markdown-input";
 import JsonOutput from "@/components/json-output";
 import type { Note, SaveNoteRequest, GetNoteResponse } from "@shared/schema";
 import { format } from "date-fns";
+import { parseMarkdownPreview } from "@/lib/markdown-parser";
 
 export default function EnhancedNoteEditor() {
   const [match, params] = useRoute<{ id: string }>("/notes/:id");
@@ -298,7 +299,7 @@ export default function EnhancedNoteEditor() {
               <div 
                 className="prose prose-sm max-w-none dark:prose-invert"
                 dangerouslySetInnerHTML={{ 
-                  __html: markdown ? require('@/lib/markdown-parser').parseMarkdownPreview(markdown) : '<p class="text-gray-500">Start writing to see preview...</p>' 
+                  __html: markdown ? parseMarkdownPreview(markdown) : '<p class="text-gray-500">Start writing to see preview...</p>' 
                 }}
               />
             </ScrollArea>

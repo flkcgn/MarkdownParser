@@ -150,6 +150,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all notes
+  app.get("/api/notes", async (req, res) => {
+    try {
+      const notes = await storage.getAllNotes();
+      res.json({ notes });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch notes" });
+    }
+  });
+
+  // Delete a note
+  app.delete("/api/notes/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deleteNote(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
   // Get recent conversions
   app.get("/api/conversions", async (req, res) => {
     try {

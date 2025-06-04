@@ -9,6 +9,8 @@ export interface IStorage {
   createNote(note: InsertNote): Promise<Note>;
   updateNote(id: number, note: InsertNote): Promise<Note>;
   getNote(id: number): Promise<Note | undefined>;
+  getAllNotes(): Promise<Note[]>;
+  deleteNote(id: number): Promise<void>;
   getBacklinks(title: string): Promise<Note[]>;
 }
 
@@ -51,6 +53,17 @@ export class DatabaseStorage implements IStorage {
   async getNote(id: number): Promise<Note | undefined> {
     const [note] = await db.select().from(notes).where(eq(notes.id, id));
     return note || undefined;
+  }
+
+  async getAllNotes(): Promise<Note[]> {
+    return await db
+      .select()
+      .from(notes)
+      .orderBy(desc(notes.updatedAt));
+  }
+
+  async deleteNote(id: number): Promise<void> {
+    await db.delete(notes).where(eq(notes.id, id));
   }
 
   async getBacklinks(title: string): Promise<Note[]> {

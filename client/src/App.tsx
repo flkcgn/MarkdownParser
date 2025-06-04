@@ -4,16 +4,20 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import AppLayout from "@/components/app-layout";
+import EnhancedNoteEditor from "@/components/enhanced-note-editor";
 import ConverterPage from "@/pages/converter";
-import NoteEditorPage from "@/pages/note-editor";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={ConverterPage} />
-      <Route path="/notes/:id" component={NoteEditorPage} />
-      <Route component={ConverterPage} />
-    </Switch>
+    <AppLayout>
+      <Switch>
+        <Route path="/" component={EnhancedNoteEditor} />
+        <Route path="/notes/:id" component={EnhancedNoteEditor} />
+        <Route path="/converter" component={ConverterPage} />
+        <Route component={EnhancedNoteEditor} />
+      </Switch>
+    </AppLayout>
   );
 }
 
