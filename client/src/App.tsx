@@ -5,11 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import ConverterPage from "@/pages/converter";
+import NoteEditorPage from "@/pages/note-editor";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={ConverterPage} />
+      <Route path="/notes/:id" component={NoteEditorPage} />
       <Route component={ConverterPage} />
     </Switch>
   );
