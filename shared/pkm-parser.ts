@@ -64,7 +64,14 @@ export class PKMParser {
       links.push(match[1]);
     }
     
-    return [...new Set(links)]; // Remove duplicates
+    // Remove duplicates manually for compatibility
+    const uniqueLinks: string[] = [];
+    links.forEach(link => {
+      if (!uniqueLinks.includes(link)) {
+        uniqueLinks.push(link);
+      }
+    });
+    return uniqueLinks;
   }
 
   // Extract external markdown links
@@ -81,7 +88,14 @@ export class PKMParser {
       }
     }
     
-    return [...new Set(links)]; // Remove duplicates
+    // Remove duplicates manually for compatibility
+    const uniqueLinks: string[] = [];
+    links.forEach(link => {
+      if (!uniqueLinks.includes(link)) {
+        uniqueLinks.push(link);
+      }
+    });
+    return uniqueLinks;
   }
 
   // Replace internal links with structured objects
@@ -203,7 +217,18 @@ export class PKMParser {
       ? [parseResult.frontmatter.tags] 
       : [];
     
-    const allTags = [...new Set([...frontmatterTags, ...parseResult.hashtags])];
+    // Merge and deduplicate tags manually for compatibility
+    const allTags: string[] = [];
+    frontmatterTags.forEach(tag => {
+      if (!allTags.includes(tag)) {
+        allTags.push(tag);
+      }
+    });
+    parseResult.hashtags.forEach(tag => {
+      if (!allTags.includes(tag)) {
+        allTags.push(tag);
+      }
+    });
 
     const metadata: NoteMetadata = {
       created: parseResult.frontmatter.created || new Date().toISOString(),
@@ -215,11 +240,12 @@ export class PKMParser {
       external_links: parseResult.externalLinks,
       backlinks: [],
       // Include any additional frontmatter fields
-      ...Object.fromEntries(
-        Object.entries(parseResult.frontmatter).filter(
-          ([key]) => !['created', 'modified', 'tags', 'alias'].includes(key)
-        )
-      )
+      ...Object.keys(parseResult.frontmatter).reduce((acc, key) => {
+        if (!['created', 'modified', 'tags', 'alias'].includes(key)) {
+          acc[key] = parseResult.frontmatter[key];
+        }
+        return acc;
+      }, {} as Record<string, any>)
     };
 
     return {

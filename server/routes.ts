@@ -154,7 +154,7 @@ function parseMarkdownToStructuredJson(markdown: string): any {
   }
 
   const withoutCode = markdown.replace(/```[\s\S]*?```/g, ' ');
-  const hashtagRegex = /(^|\s)#([\p{L}\p{N}_/-]+)/gu;
+  const hashtagRegex = /(^|\s)#([a-zA-Z0-9_/-]+)/g;
   let m: RegExpExecArray | null;
   while ((m = hashtagRegex.exec(withoutCode)) !== null) {
     tags.add(m[2]);
@@ -240,12 +240,32 @@ function parseInlineElements(text: string, internalLinks: Set<string>, externalL
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Convert markdown to JSON
+  // Convert markdown to JSON with PKM features
   app.post("/api/convert", async (req, res) => {
     try {
       const validatedData = convertMarkdownSchema.parse(req.body);
       
-      const result = parseMarkdownToStructuredJson(validatedData.markdown);
+      // Use PKM parser for comprehensive second brain functionality
+      const pkmResult = PKMParser.parse(validatedData.markdown);
+      const pkmNote = PKMParser.createPKMNote(pkmResult);
+      
+      // Enhanced JSON structure with PKM features and existing structured content
+      const structuredContent = parseMarkdownToStructuredJson(validatedData.markdown);
+      const result = {
+        success: true,
+        json: {
+          ...pkmNote,
+          structured_content: structuredContent.json,
+          pkm_metadata: {
+            frontmatter: pkmResult.frontmatter,
+            internal_links: pkmResult.internalLinks,
+            external_links: pkmResult.externalLinks,
+            hashtags: pkmResult.hashtags,
+            word_count: pkmResult.wordCount,
+            title: pkmResult.title
+          }
+        }
+      };
       
       // Store the conversion
       await storage.createConversion({
