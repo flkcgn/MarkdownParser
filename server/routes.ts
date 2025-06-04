@@ -6,6 +6,8 @@ import { convertMarkdownSchema, convertMarkdownResponseSchema } from "@shared/sc
 // server lightweight. We'll implement our own simple word counter instead of
 // relying on marked for stripping markdown.
 import multer from "multer";
+import { randomUUID } from "crypto";
+import yaml from "yaml";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -53,33 +55,58 @@ function countWords(markdown: string): number {
 
 function parseMarkdownToStructuredJson(markdown: string): any {
   const startTime = Date.now();
-  
-  const elements: any[] = [];
-  let elementCount = 0;
 
-  // Parse using regex patterns for simplicity and reliability
+  let frontmatter: Record<string, any> = {};
+  if (markdown.startsWith('---')) {
+    const end = markdown.indexOf('---', 3);
+    if (end !== -1) {
+      try {
+        frontmatter = yaml.parse(markdown.slice(3, end).trim()) || {};
+      } catch {
+        frontmatter = {};
+      }
+      markdown = markdown.slice(end + 3).replace(/^\s+/, '');
+    }
+  }
+
+  const tags = new Set<string>();
+  if (Array.isArray(frontmatter.tags)) {
+    frontmatter.tags.forEach((t: string) => tags.add(t));
+  } else if (typeof frontmatter.tags === 'string') {
+    frontmatter.tags.split(/[,\s]+/).forEach((t) => t && tags.add(t));
+  }
+
+  const metadata: Record<string, any> = {};
+  if (frontmatter.created) metadata.created = new Date(frontmatter.created).toISOString();
+  if (frontmatter.modified) metadata.modified = new Date(frontmatter.modified).toISOString();
+  if (frontmatter.alias) metadata.alias = frontmatter.alias;
+
+  const custom = { ...frontmatter };
+  delete custom.tags; delete custom.alias; delete custom.created; delete custom.modified; delete custom.title;
+  Object.assign(metadata, custom);
+
+  const internalLinks = new Set<string>();
+  const externalLinks = new Set<string>();
+
   const lines = markdown.split('\n');
+  const content: any[] = [];
+  let elementCount = 0;
+  let title: string | undefined = frontmatter.title;
   let i = 0;
 
   while (i < lines.length) {
     const line = lines[i].trim();
-    
-    if (!line) {
-      i++;
-      continue;
-    }
+
+    if (!line) { i++; continue; }
 
     // Headers
     const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (headerMatch) {
-      elements.push({
-        type: "heading",
-        level: headerMatch[1].length,
-        content: headerMatch[2],
-      });
-      elementCount++;
-      i++;
-      continue;
+      const level = headerMatch[1].length;
+      const text = headerMatch[2];
+      content.push({ type: 'heading', level, text });
+      if (!title && level === 1) title = text;
+      elementCount++; i++; continue;
     }
 
     // Code blocks
@@ -88,237 +115,131 @@ function parseMarkdownToStructuredJson(markdown: string): any {
       const language = langMatch?.[1] || 'text';
       const codeLines: string[] = [];
       i++;
-      
       while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      
-      elements.push({
-        type: "code_block",
-        language: language,
-        content: codeLines.join('\n'),
-      });
-      elementCount++;
-      i++; // Skip closing ```
-      continue;
-    }
-
-    // Blockquotes
-    if (line.startsWith('>')) {
-      const content = line.substring(1).trim();
-      elements.push({
-        type: "blockquote",
-        content: content,
-      });
-      elementCount++;
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (line.match(/^[-*_]{3,}$/)) {
-      elements.push({
-        type: "horizontal_rule",
-      });
-      elementCount++;
-      i++;
-      continue;
+        codeLines.push(lines[i]); i++; }
+      content.push({ type: 'code_block', language, code: codeLines.join('\n') });
+      elementCount++; i++; continue;
     }
 
     // Lists (unordered)
-    const unorderedListMatch = line.match(/^[\s]*[-*+]\s+(.+)$/);
-    if (unorderedListMatch) {
+    const unorderedListMatch = line.match(/^[-*+]\s+(.+)/);
+    const orderedListMatch = line.match(/^\d+\.\s+(.+)/);
+    if (unorderedListMatch || orderedListMatch) {
+      const ordered = Boolean(orderedListMatch);
       const items: any[] = [];
-      
       while (i < lines.length) {
-        const currentLine = lines[i].trim();
-        const listMatch = currentLine.match(/^[\s]*[-*+]\s+(.+)$/);
-        if (listMatch) {
-          items.push({
-            type: "list_item",
-            content: listMatch[1],
-          });
+        const current = lines[i].trim();
+        const match = ordered ? current.match(/^\d+\.\s+(.+)/) : current.match(/^[-*+]\s+(.+)/);
+        if (match) {
+          const inline = parseInlineElements(match[1], internalLinks, externalLinks);
+          if (inline.length === 1 && inline[0].type === 'text') {
+            items.push({ text: inline[0].text });
+          } else {
+            items.push({ inline });
+          }
           i++;
-        } else if (currentLine === '') {
-          i++;
-        } else {
-          break;
-        }
+        } else if (current === '') {
+          i++; } else { break; }
       }
-      
-      elements.push({
-        type: "list",
-        ordered: false,
-        items: items,
-      });
-      elementCount++;
-      continue;
-    }
-
-    // Lists (ordered)
-    const orderedListMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
-    if (orderedListMatch) {
-      const items: any[] = [];
-      
-      while (i < lines.length) {
-        const currentLine = lines[i].trim();
-        const listMatch = currentLine.match(/^[\s]*\d+\.\s+(.+)$/);
-        if (listMatch) {
-          items.push({
-            type: "list_item",
-            content: listMatch[1],
-          });
-          i++;
-        } else if (currentLine === '') {
-          i++;
-        } else {
-          break;
-        }
-      }
-      
-      elements.push({
-        type: "list",
-        ordered: true,
-        items: items,
-      });
-      elementCount++;
-      continue;
+      content.push({ type: 'list', ordered, items });
+      elementCount++; continue;
     }
 
     // Regular paragraphs
-    const children = parseInlineElements(line);
-    if (children.length === 1 && children[0].type === 'text') {
-      elements.push({
-        type: "paragraph",
-        content: children[0].content,
-      });
+    const inline = parseInlineElements(line, internalLinks, externalLinks);
+    if (inline.length === 1 && inline[0].type === 'text') {
+      content.push({ type: 'paragraph', text: inline[0].text });
     } else {
-      elements.push({
-        type: "paragraph",
-        children: children,
-      });
+      content.push({ type: 'paragraph', inline });
     }
-    elementCount++;
-    i++;
+    elementCount++; i++;
   }
 
-  const endTime = Date.now();
-  const processTime = ((endTime - startTime) / 1000).toFixed(3) + 's';
-  
-  const result = {
-    type: "document",
-    children: elements,
+  const withoutCode = markdown.replace(/```[\s\S]*?```/g, ' ');
+  const hashtagRegex = /(^|\s)#([\p{L}\p{N}_/-]+)/gu;
+  let m: RegExpExecArray | null;
+  while ((m = hashtagRegex.exec(withoutCode)) !== null) {
+    tags.add(m[2]);
+  }
+
+  metadata.tags = Array.from(tags);
+  metadata.internal_links = Array.from(internalLinks);
+  metadata.external_links = Array.from(externalLinks);
+  metadata.backlinks = [];
+  metadata.word_count = countWords(markdown);
+
+  const note = {
+    id: randomUUID(),
+    title: title || 'Untitled',
+    metadata,
+    content,
   };
 
-  const jsonString = JSON.stringify(result, null, 2);
+  const jsonString = JSON.stringify(note, null, 2);
   const jsonSize = (jsonString.length / 1024).toFixed(1) + ' KB';
-  const wordCount = countWords(markdown);
+  const processTime = ((Date.now() - startTime) / 1000).toFixed(3) + 's';
 
   return {
-    json: result,
+    json: note,
     stats: {
       elements: elementCount,
       jsonSize,
       processTime,
     },
-    metadata: {
-      word_count: wordCount,
-    },
+    metadata,
   };
 }
 
-function parseInlineElements(text: string): any[] {
+function parseInlineElements(text: string, internalLinks: Set<string>, externalLinks: Set<string>): any[] {
   const elements: any[] = [];
-  
-  // Simple parser for inline elements
-  const strongRegex = /\*\*(.*?)\*\*/g;
-  const emRegex = /\*(.*?)\*/g;
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const codeRegex = /`([^`]+)`/g;
-
+  const regex = /(\[\[[^\]]+\]\]|\[([^\]]+)\]\(([^)]+)\))/g;
   let lastIndex = 0;
-  const matches: Array<{ type: string; content: string; url?: string; start: number; end: number }> = [];
-
-  // Find all matches
   let match: RegExpExecArray | null;
-  strongRegex.lastIndex = 0;
-  while ((match = strongRegex.exec(text)) !== null) {
-    matches.push({ type: 'strong', content: match[1], start: match.index, end: match.index + match[0].length });
-  }
-  
-  emRegex.lastIndex = 0;
-  while ((match = emRegex.exec(text)) !== null) {
-    // Skip if this is part of a strong match
-    if (!matches.some(m => match!.index >= m.start && match!.index < m.end)) {
-      matches.push({ type: 'emphasis', content: match[1], start: match.index, end: match.index + match[0].length });
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const plain = text.slice(lastIndex, match.index);
+      if (plain.trim()) elements.push({ type: 'text', text: plain });
     }
-  }
-  
-  linkRegex.lastIndex = 0;
-  while ((match = linkRegex.exec(text)) !== null) {
-    matches.push({ type: 'link', content: match[1], url: match[2], start: match.index, end: match.index + match[0].length });
-  }
-  
-  codeRegex.lastIndex = 0;
-  while ((match = codeRegex.exec(text)) !== null) {
-    matches.push({ type: 'code', content: match[1], start: match.index, end: match.index + match[0].length });
-  }
 
-  // Sort matches by position
-  matches.sort((a, b) => a.start - b.start);
-
-  // Build elements array
-  matches.forEach(match => {
-    // Add text before this match
-    if (match.start > lastIndex) {
-      const textContent = text.slice(lastIndex, match.start);
-      if (textContent.trim()) {
-        elements.push({ type: 'text', content: textContent });
+    if (match[0].startsWith('[[')) {
+      const wiki = match[0].slice(2, -2);
+      const pipeIndex = wiki.indexOf('|');
+      const hashIndex = wiki.indexOf('#');
+      let note = wiki;
+      let display = wiki;
+      if (pipeIndex !== -1) {
+        note = wiki.slice(0, pipeIndex);
+        display = wiki.slice(pipeIndex + 1);
       }
-    }
-
-    // Add the match element
-    if (match.type === 'link') {
-      elements.push({ type: 'link', content: match.content, url: match.url });
+      if (hashIndex !== -1) {
+        note = note.slice(0, hashIndex);
+      }
+      note = note.trim();
+      display = display.trim();
+      internalLinks.add(note);
+      elements.push({ type: 'internal_link', note, text: display });
     } else {
-      elements.push({ type: match.type, content: match.content });
+      const display = match[2];
+      const url = match[3];
+      externalLinks.add(url);
+      elements.push({ type: 'external_link', url, text: display });
     }
-
-    lastIndex = match.end;
-  });
-
-  // Add remaining text
-  if (lastIndex < text.length) {
-    const remaining = text.slice(lastIndex);
-    if (remaining.trim()) {
-      elements.push({ type: 'text', content: remaining });
-    }
+    lastIndex = regex.lastIndex;
   }
 
-  // If no inline elements found, return simple text
+  if (lastIndex < text.length) {
+    const tail = text.slice(lastIndex);
+    if (tail.trim()) elements.push({ type: 'text', text: tail });
+  }
+
   if (elements.length === 0 && text.trim()) {
-    return [{ type: 'text', content: text.replace(/<[^>]*>/g, '') }];
+    elements.push({ type: 'text', text });
   }
 
   return elements;
 }
 
-function parseListItems(body: string): any[] {
-  const items: any[] = [];
-  const itemRegex = /<li>([\s\S]*?)<\/li>/g;
-  let match;
-
-  while ((match = itemRegex.exec(body)) !== null) {
-    const itemContent = match[1].replace(/<[^>]*>/g, '').trim();
-    items.push({
-      type: "list_item",
-      content: itemContent,
-    });
-  }
-
-  return items;
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Convert markdown to JSON
