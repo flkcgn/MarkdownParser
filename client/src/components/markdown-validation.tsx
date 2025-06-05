@@ -14,22 +14,7 @@ interface MarkdownValidationProps {
   currentMarkdown?: string;
 }
 
-export default function MarkdownValidation({ errors, warnings, isValid, onJumpToLine, onApplyFix, currentMarkdown }: MarkdownValidationProps) {
-  const handleApplyFix = (error: ValidationError) => {
-    if (!error.autofix || !currentMarkdown || !onApplyFix) return;
-    const fixedMarkdown = applyAutofix(currentMarkdown, error.autofix);
-    onApplyFix(fixedMarkdown);
-  };
-
-  const handleFixAll = () => {
-    if (!currentMarkdown || !onApplyFix) return;
-    const allErrors = [...errors, ...warnings];
-    const fixedMarkdown = applyAllAutofixes(currentMarkdown, allErrors);
-    onApplyFix(fixedMarkdown);
-  };
-
-  const fixableErrors = [...errors, ...warnings].filter(error => error.autofix);
-
+export default function MarkdownValidation({ errors, warnings, isValid, onJumpToLine }: MarkdownValidationProps) {
   if (isValid && warnings.length === 0) {
     return (
       <Card className="border-green-200 bg-green-50 animate-fade-in transition-all hover-lift">
@@ -58,20 +43,9 @@ export default function MarkdownValidation({ errors, warnings, isValid, onJumpTo
               <span className="text-yellow-800">Style Warnings</span>
             </>
           )}
-          <Badge variant={errors.length > 0 ? "destructive" : "secondary"} className="transition-all hover-scale">
+          <Badge variant={errors.length > 0 ? "destructive" : "secondary"} className="ml-auto transition-all hover-scale">
             {errors.length + warnings.length}
           </Badge>
-          {fixableErrors.length > 0 && onApplyFix && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleFixAll}
-              className="ml-auto text-xs h-6 px-2 bg-white hover:bg-blue-50 border-blue-200 text-blue-700 hover:text-blue-800"
-            >
-              <Wand2 className="h-3 w-3 mr-1" />
-              Fix All ({fixableErrors.length})
-            </Button>
-          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
@@ -102,23 +76,7 @@ export default function MarkdownValidation({ errors, warnings, isValid, onJumpTo
                 {error.suggestion && (
                   <div className="flex items-start gap-2">
                     <Lightbulb className="h-3 w-3 text-red-400 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-red-600">{error.suggestion}</p>
-                      {error.autofix && onApplyFix && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApplyFix(error);
-                          }}
-                          className="mt-2 text-xs h-6 px-2 bg-white hover:bg-red-50 border-red-200 text-red-700 hover:text-red-800"
-                        >
-                          <Wand2 className="h-3 w-3 mr-1" />
-                          Apply Fix
-                        </Button>
-                      )}
-                    </div>
+                    <p className="text-sm text-red-600">{error.suggestion}</p>
                   </div>
                 )}
               </div>
@@ -151,23 +109,7 @@ export default function MarkdownValidation({ errors, warnings, isValid, onJumpTo
                 {warning.suggestion && (
                   <div className="flex items-start gap-2">
                     <Lightbulb className="h-3 w-3 text-yellow-400 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-yellow-600">{warning.suggestion}</p>
-                      {warning.autofix && onApplyFix && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApplyFix(warning);
-                          }}
-                          className="mt-2 text-xs h-6 px-2 bg-white hover:bg-yellow-50 border-yellow-200 text-yellow-700 hover:text-yellow-800"
-                        >
-                          <Wand2 className="h-3 w-3 mr-1" />
-                          Apply Fix
-                        </Button>
-                      )}
-                    </div>
+                    <p className="text-sm text-yellow-600">{warning.suggestion}</p>
                   </div>
                 )}
               </div>
