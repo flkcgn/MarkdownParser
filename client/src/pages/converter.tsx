@@ -263,30 +263,8 @@ export default function ConverterPage() {
               </div>
 
               {/* Output Section */}
-              <div className="lg:grid lg:grid-cols-2 lg:divide-x lg:divide-slate-200">
-                <div className="animate-slide-in-left animate-delay-300">
-                  <JsonOutput jsonData={jsonOutput} isLoading={isLoading} />
-                </div>
-
-                {/* Preview Section */}
-                <div className="p-6 bg-slate-50 animate-slide-in-right animate-delay-300">
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
-                    Preview
-                  </h3>
-                  <div className="bg-white rounded-lg p-4 h-96 overflow-auto prose prose-sm max-w-none transition-all hover-scale">
-                    {markdown ? (
-                      <div
-                        dangerouslySetInnerHTML={{
-                          __html: parseMarkdownPreview(markdown),
-                        }}
-                      />
-                    ) : (
-                      <div className="text-slate-500 text-center mt-20">
-                        Enter markdown content to see preview
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div className="animate-slide-in-left animate-delay-300">
+                <JsonOutput jsonData={jsonOutput} isLoading={isLoading} />
               </div>
             </Tabs>
           </CardContent>
