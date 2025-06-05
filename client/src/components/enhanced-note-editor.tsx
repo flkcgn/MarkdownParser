@@ -113,23 +113,8 @@ export default function EnhancedNoteEditor() {
     },
   });
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (!title.trim() || !markdown.trim() || saveMutation.isPending) return;
-    
-    const timeout = setTimeout(() => {
-      setIsAutoSaving(true);
-      saveMutation.mutate({
-        id: noteId,
-        title,
-        markdown,
-        tags,
-      });
-      setTimeout(() => setIsAutoSaving(false), 1000);
-    }, 2000);
-
-    return () => clearTimeout(timeout);
-  }, [title, markdown, tags, noteId]);
+  // Disabled auto-save to prevent excessive API calls
+  // Manual save only via save button
 
   const handleSave = useCallback(() => {
     if (!title.trim() || !markdown.trim()) {
@@ -192,12 +177,6 @@ export default function EnhancedNoteEditor() {
           </div>
           
           <div className="flex items-center gap-2">
-            {isAutoSaving && (
-              <span className="text-xs text-gray-500 flex items-center gap-1">
-                <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-400"></div>
-                Auto-saving...
-              </span>
-            )}
             <Button 
               onClick={handleSave} 
               disabled={saveMutation.isPending || !title.trim() || !markdown.trim()}
